@@ -1451,6 +1451,16 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isStateProcessed {
+		showDownloads := false
+		lowerMsg := strings.ToLower(userMsg)
+		downloadKeywords := []string{"laporan", "report", "rekap", "pdf", "xls", "xlsx", "excel", "word", "doc", "docx"}
+		for _, kw := range downloadKeywords {
+			if strings.Contains(lowerMsg, kw) {
+				showDownloads = true
+				break
+			}
+		}
+
 		switch analysis.Intent {
 		case "TRIGGER_RESET_DATA":
 			tipe := "all"
@@ -2153,8 +2163,13 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 
 						saldo := totalIncome - totalExpense
 
-						replyText = fmt.Sprintf(`📊 **LAPORAN KEUANGAN BULAN INI**<br>Periode: **%s**<br><br>📥 **PEMASUKAN (INCOME)**<br>%s<br>Total Pemasukan: **%s**<br><br>📤 **PENGELUARAN (EXPENSE)**<br>%s<br>Total Pengeluaran: **%s**<br><br>💰 **SALDO & RINGKASAN**<br>Saldo saat ini: **%s**<br><br>📄 **UNDUH LAPORAN**<br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh PDF</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Excel</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Word</a>`,
-							periodLabel, incomeListStr, formatRupiah(totalIncome), expenseListStr, formatRupiah(totalExpense), formatRupiah(saldo), downloadPDF, downloadXLS, downloadWord)
+						if showDownloads {
+							replyText = fmt.Sprintf(`📊 **LAPORAN KEUANGAN BULAN INI**<br>Periode: **%s**<br><br>📥 **PEMASUKAN (INCOME)**<br>%s<br>Total Pemasukan: **%s**<br><br>📤 **PENGELUARAN (EXPENSE)**<br>%s<br>Total Pengeluaran: **%s**<br><br>💰 **SALDO & RINGKASAN**<br>Saldo saat ini: **%s**<br><br>📄 **UNDUH LAPORAN**<br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh PDF</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Excel</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Word</a>`,
+								periodLabel, incomeListStr, formatRupiah(totalIncome), expenseListStr, formatRupiah(totalExpense), formatRupiah(saldo), downloadPDF, downloadXLS, downloadWord)
+						} else {
+							replyText = fmt.Sprintf(`📊 **LAPORAN KEUANGAN BULAN INI**<br>Periode: **%s**<br><br>📥 **PEMASUKAN (INCOME)**<br>%s<br>Total Pemasukan: **%s**<br><br>📤 **PENGELUARAN (EXPENSE)**<br>%s<br>Total Pengeluaran: **%s**<br><br>💰 **SALDO & RINGKASAN**<br>Saldo saat ini: **%s**`,
+								periodLabel, incomeListStr, formatRupiah(totalIncome), expenseListStr, formatRupiah(totalExpense), formatRupiah(saldo))
+						}
 					}
 				} else {
 					var lines []string
@@ -2199,8 +2214,13 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 					if len(lines) == 0 {
 						replyText = fmt.Sprintf("Tidak ada %s yang tercatat untuk periode **%s**. 🤷‍♂️", typeLabel, periodLabel)
 					} else {
-						replyText = fmt.Sprintf(`%s (%s):<br><br>%s<br><br>**Total %s**: %s<br><br>📄 **UNDUH LAPORAN**<br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh PDF</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Excel</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Word</a>`,
-							header, periodLabel, strings.Join(lines, "<br>"), totalLabel, formatRupiah(totalAmount), downloadPDF, downloadXLS, downloadWord)
+						if showDownloads {
+							replyText = fmt.Sprintf(`%s (%s):<br><br>%s<br><br>**Total %s**: %s<br><br>📄 **UNDUH LAPORAN**<br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh PDF</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Excel</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Word</a>`,
+								header, periodLabel, strings.Join(lines, "<br>"), totalLabel, formatRupiah(totalAmount), downloadPDF, downloadXLS, downloadWord)
+						} else {
+							replyText = fmt.Sprintf(`%s (%s):<br><br>%s<br><br>**Total %s**: %s`,
+								header, periodLabel, strings.Join(lines, "<br>"), totalLabel, formatRupiah(totalAmount))
+						}
 					}
 				}
 			}
@@ -2299,8 +2319,13 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 
 						saldo := totalIncome - totalExpense
 
-						replyText = fmt.Sprintf(`📊 **LAPORAN KEUANGAN KUSTOM**<br>Periode: **%s**<br><br>📥 **PEMASUKAN (INCOME)**<br>%s<br>Total Pemasukan: **%s**<br><br>📤 **PENGELUARAN (EXPENSE)**<br>%s<br>Total Pengeluaran: **%s**<br><br>💰 **SALDO & RINGKASAN**<br>Saldo saat ini: **%s**<br><br>📄 **UNDUH LAPORAN**<br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh PDF</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Excel</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Word</a>`,
-							periodLabel, incomeListStr, formatRupiah(totalIncome), expenseListStr, formatRupiah(totalExpense), formatRupiah(saldo), downloadPDF, downloadXLS, downloadWord)
+						if showDownloads {
+							replyText = fmt.Sprintf(`📊 **LAPORAN KEUANGAN KUSTOM**<br>Periode: **%s**<br><br>📥 **PEMASUKAN (INCOME)**<br>%s<br>Total Pemasukan: **%s**<br><br>📤 **PENGELUARAN (EXPENSE)**<br>%s<br>Total Pengeluaran: **%s**<br><br>💰 **SALDO & RINGKASAN**<br>Saldo saat ini: **%s**<br><br>📄 **UNDUH LAPORAN**<br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh PDF</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Excel</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Word</a>`,
+								periodLabel, incomeListStr, formatRupiah(totalIncome), expenseListStr, formatRupiah(totalExpense), formatRupiah(saldo), downloadPDF, downloadXLS, downloadWord)
+						} else {
+							replyText = fmt.Sprintf(`📊 **LAPORAN KEUANGAN KUSTOM**<br>Periode: **%s**<br><br>📥 **PEMASUKAN (INCOME)**<br>%s<br>Total Pemasukan: **%s**<br><br>📤 **PENGELUARAN (EXPENSE)**<br>%s<br>Total Pengeluaran: **%s**<br><br>💰 **SALDO & RINGKASAN**<br>Saldo saat ini: **%s**`,
+								periodLabel, incomeListStr, formatRupiah(totalIncome), expenseListStr, formatRupiah(totalExpense), formatRupiah(saldo))
+						}
 					}
 				} else {
 					var lines []string
@@ -2345,8 +2370,13 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 					if len(lines) == 0 {
 						replyText = fmt.Sprintf("Tidak ada %s yang tercatat untuk periode **%s**. 🤷‍♂️", typeLabel, periodLabel)
 					} else {
-						replyText = fmt.Sprintf(`%s (%s):<br><br>%s<br><br>**Total %s**: %s<br><br>📄 **UNDUH LAPORAN**<br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh PDF</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Excel</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Word</a>`,
-							header, periodLabel, strings.Join(lines, "<br>"), totalLabel, formatRupiah(totalAmount), downloadPDF, downloadXLS, downloadWord)
+						if showDownloads {
+							replyText = fmt.Sprintf(`%s (%s):<br><br>%s<br><br>**Total %s**: %s<br><br>📄 **UNDUH LAPORAN**<br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh PDF</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Excel</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Word</a>`,
+								header, periodLabel, strings.Join(lines, "<br>"), totalLabel, formatRupiah(totalAmount), downloadPDF, downloadXLS, downloadWord)
+						} else {
+							replyText = fmt.Sprintf(`%s (%s):<br><br>%s<br><br>**Total %s**: %s`,
+								header, periodLabel, strings.Join(lines, "<br>"), totalLabel, formatRupiah(totalAmount))
+						}
 					}
 				}
 			}
