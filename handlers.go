@@ -122,7 +122,7 @@ func getMonthCycleBounds(year int, month int, salaryDay int) (time.Time, time.Ti
 		prevYear = year - 1
 	}
 	start := getSalaryDate(prevYear, prevMonth, salaryDay)
-	
+
 	endDay := salaryDay - 1
 	end := getSalaryDate(year, month, endDay)
 	return start, end
@@ -182,7 +182,7 @@ func checkAndGenerateTemplates(userID string, year int, month int) {
 
 		// Check if this transaction already exists for this cycle to prevent duplicate insertion
 		var txExists int
-		errExists := DB.QueryRow("SELECT COUNT(*) FROM transactions WHERE user_id = ? AND tanggal = ? AND deskripsi = ? AND nominal = ?", 
+		errExists := DB.QueryRow("SELECT COUNT(*) FROM transactions WHERE user_id = ? AND tanggal = ? AND deskripsi = ? AND nominal = ?",
 			userID, date.Format("2006-01-02"), tmpl.Deskripsi, tmpl.Nominal).Scan(&txExists)
 		if errExists == nil && txExists > 0 {
 			continue // Already generated
@@ -237,7 +237,7 @@ func generateMissingTemplateTransactions(userID string) {
 
 			// Check if this transaction already exists for this cycle
 			var txExists int
-			errExists := DB.QueryRow("SELECT COUNT(*) FROM transactions WHERE user_id = ? AND tanggal = ? AND deskripsi = ? AND nominal = ?", 
+			errExists := DB.QueryRow("SELECT COUNT(*) FROM transactions WHERE user_id = ? AND tanggal = ? AND deskripsi = ? AND nominal = ?",
 				userID, date.Format("2006-01-02"), deskripsi, nominal).Scan(&txExists)
 			if errExists == nil && txExists == 0 {
 				txID := generateID()
@@ -255,7 +255,6 @@ func generateMissingTemplateTransactions(userID string) {
 		}
 	}
 }
-
 
 const HelpMainMenuResponse = `🤖 **PANDUAN PENGGUNAAN DOMPETKU**<br><br>Pilih topik bantuan di bawah ini dengan mengetik nomor menu (contoh: ketik **1** atau **2**):<br><br>**1** 📝 Catat Transaksi<br>**2** 📁 Kelola Kategori & Keyword<br>**3** 📊 Laporan & Keuangan<br>**4** 🗑️ Hapus Transaksi<br><br>Ketik **kembali** untuk keluar.`
 
@@ -703,7 +702,7 @@ func GetFinancials(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		label, exists := catLabels[cat]
 		if !exists {
 			label = cat
@@ -734,12 +733,12 @@ func GenerateReport(w http.ResponseWriter, r *http.Request) {
 	todayStr := time.Now().Format("2006-01-02")
 	currentMonth := int(time.Now().Month())
 	currentYear := time.Now().Year()
-	
+
 	var title, body string
 
 	if reportType == "harian" {
 		title = fmt.Sprintf("Laporan Keuangan Harian (%s)", todayStr)
-		
+
 		var totalExpense float64
 		err := DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM transactions WHERE tipe = 'expense' AND status = 'paid' AND tanggal = ?", todayStr).Scan(&totalExpense)
 		if err != nil {
@@ -800,12 +799,12 @@ Tanggal: %s
 			WHERE tipe = 'expense' AND status = 'paid' AND tanggal >= ? AND tanggal <= ?
 			GROUP BY kategori 
 			ORDER BY total DESC LIMIT 1`, startStr, endStr).Scan(&topCategory, &topSum)
-		
+
 		if err != nil && err != sql.ErrNoRows {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		topCatLabel := "Tidak ada"
 		if topCategory != "" {
 			topCatLabel = fmt.Sprintf("%s (%s)", topCategory, formatRupiah(topSum))
@@ -893,7 +892,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 
 		if currentState != "" {
 			cleanedMsg := strings.ToLower(strings.TrimSpace(userMsg))
-			
+
 			if currentState == "CONFIRM_DELETE_EXPENSE_MAIN" {
 				if cleanedMsg == "5" || cleanedMsg == "kembali" || cleanedMsg == "batal" {
 					SetUserState("user_1", "")
@@ -1190,7 +1189,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 					nominal, _ := strconv.ParseFloat(parts[1], 64)
 					dayVal, _ := strconv.Atoi(parts[2])
 					hasDay := parts[3] == "true"
-					
+
 					if cleanedMsg == "1" || cleanedMsg == "ya" {
 						var deskripsi string
 						err := DB.QueryRow("SELECT deskripsi FROM recurring_templates WHERE id = ?", templateID).Scan(&deskripsi)
@@ -1201,7 +1200,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 							} else {
 								_, updateErr = DB.Exec("UPDATE recurring_templates SET nominal = ? WHERE id = ?", nominal, templateID)
 							}
-							
+
 							if updateErr != nil {
 								log.Printf("DB Error updating template: %v", updateErr)
 								replyText = "Gagal memperbarui template di database. 🥺"
@@ -1234,7 +1233,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 						replyText = "Gagal mengaktifkan template di database. 🥺"
 					} else {
 						generateMissingTemplateTransactions("user_1")
-						
+
 						// Fetch list of activated templates to show in response
 						rows, err := DB.Query("SELECT deskripsi, nominal, target_day, tipe FROM recurring_templates WHERE user_id = 'user_1' AND status = 'planned'")
 						var lines []string
@@ -1321,7 +1320,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 					now := time.Now()
 					monthNamesIndo := []string{"", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"}
 					currentMonthName := monthNamesIndo[int(now.Month())]
-					
+
 					if cleanedMsg == "4.1" {
 						SetUserState("user_1", "CONFIRM_DELETE_EXPENSE_MAIN")
 						replyText = fmt.Sprintf(`⚠️ **KONFIRMASI PENGHAPUSAN PENGELUARAN**<br><br>Apakah Anda yakin ingin menghapus data pengeluaran Anda? Tindakan ini tidak dapat dibatalkan.<br><br>Pilih opsi penghapusan dengan mengetik nomor menu:<br><br>**1** Hapus Semua Data (Pemasukan & Pengeluaran)<br>**2** Hapus Pengeluaran Bulan Ini (%s %d)<br>**3** Hapus Pengeluaran Berdasarkan Nama<br>**4** Hapus Pengeluaran Bulan Tertentu<br>**5** Batal (Kembali)`, currentMonthName, now.Year())
@@ -1373,829 +1372,829 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case "INPUT_TRANSAKSI":
-		// Insert transaction to MySQL
-		id := generateID()
-		kategori := analysis.Data["kategori"].(string)
-		tipe := analysis.Data["tipe"].(string)
-		nominal := analysis.Data["nominal"].(float64)
-		status := analysis.Data["status"].(string)
-		deskripsi := analysis.Data["deskripsi"].(string)
-		tanggal := analysis.Data["tanggal"].(string)
-
-		var dueDate interface{} = nil
-		if status == "planned" {
-			// Set due date 10 days out
-			dueDate = time.Now().AddDate(0, 0, 10).Format("2006-01-02")
-		}
-
-		_, err := DB.Exec("INSERT INTO transactions (id, user_id, tanggal, deskripsi, kategori, tipe, nominal, status, due_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			id, "user_1", tanggal, deskripsi, kategori, tipe, nominal, status, dueDate, time.Now())
-		
-		if err != nil {
-			log.Printf("DB Error inserting transaction: %v", err)
-			replyText = "Maaf, terjadi kesalahan saat menyimpan transaksi ke database. 🥺"
-		} else {
-			statusLabel := "Lunas (Paid)"
-			if status == "planned" {
-				statusLabel = "Direncanakan (Planned)"
-			}
-			typeLabel := "Pemasukan"
-			if tipe == "expense" {
-				typeLabel = "Pengeluaran"
-			}
-			replyText = fmt.Sprintf("Catatan berhasil disimpan! 📝<br><br>**%s**: %s<br>**Nominal**: %s<br>**Kategori**: %s<br>**Status**: %s",
-				typeLabel, deskripsi, formatRupiah(nominal), kategori, statusLabel)
-		}
-
-	case "UPDATE_STATUS":
-		category := analysis.Data["category"].(string)
-		
-		// Find oldest planned transaction for that category
-		var id, deskripsi string
-		var nominal float64
-		err := DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE kategori = ? AND status = 'planned' AND tipe = 'expense' ORDER BY tanggal ASC LIMIT 1", category).Scan(&id, &deskripsi, &nominal)
-		
-		if err == sql.ErrNoRows {
-			replyText = fmt.Sprintf("Tidak ada tagihan tertunda untuk kategori **\"%s\"** yang terdaftar. 😊<br><br>Mau catat transaksi baru? Contoh: \"listrik 200rb\"", category)
-		} else if err != nil {
-			log.Printf("DB Error finding planned tx: %v", err)
-			replyText = "Maaf, ada kendala mencari tagihan di database. 🥺"
-		} else {
-			// Update status to paid
-			_, err = DB.Exec("UPDATE transactions SET status = 'paid' WHERE id = ?", id)
-			if err != nil {
-				log.Printf("DB Error updating status: %v", err)
-				replyText = "Gagal memperbarui status tagihan. 🥺"
-			} else {
-				replyText = fmt.Sprintf("Tagihan **%s** sebesar **%s** berhasil dibayar! 💳<br>Status diperbarui menjadi Lunas (Paid).", deskripsi, formatRupiah(nominal))
-			}
-		}
-
-	case "DELETE_TRANSAKSI":
-		target := analysis.Data["target"].(string)
-		keyword := analysis.Data["keyword"].(string)
-		tipe := "all"
-		if t, ok := analysis.Data["tipe"].(string); ok {
-			tipe = t
-		}
-
-		if target == "last" {
-			var id, deskripsi string
-			var nominal float64
-			err := DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions ORDER BY created_at DESC, id DESC LIMIT 1").Scan(&id, &deskripsi, &nominal)
-			
-			if err == sql.ErrNoRows {
-				replyText = "Tidak ada transaksi yang bisa dihapus. 🤷‍♂️"
-			} else if err != nil {
-				log.Printf("DB Error finding last transaction: %v", err)
-				replyText = "Gagal mencari transaksi terakhir di database. 🥺"
-			} else {
-				SetUserState("user_1", "CONFIRM_DELETE_LAST_"+id)
-				replyText = fmt.Sprintf("Apakah Anda yakin ingin menghapus transaksi terakhir **%s** sebesar **%s**? 🤔<br><br>**1** Ya, Hapus<br>**2** Batal (Kembali)", deskripsi, formatRupiah(nominal))
-			}
-		} else {
-			var id, deskripsi string
-			var nominal float64
-			
-			likeKeyword := "%" + keyword + "%"
-			var err error
-			if tipe == "all" {
-				err = DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE deskripsi LIKE ? OR kategori LIKE ? ORDER BY created_at DESC, id DESC LIMIT 1", likeKeyword, likeKeyword).Scan(&id, &deskripsi, &nominal)
-			} else {
-				err = DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE (deskripsi LIKE ? OR kategori LIKE ?) AND tipe = ? ORDER BY created_at DESC, id DESC LIMIT 1", likeKeyword, likeKeyword, tipe).Scan(&id, &deskripsi, &nominal)
-			}
-			
-			if err == sql.ErrNoRows {
-				if tipe == "expense" {
-					replyText = fmt.Sprintf("Tidak ditemukan pengeluaran yang cocok dengan kata kunci **\"%s\"**. 🤔", keyword)
-				} else if tipe == "income" {
-					replyText = fmt.Sprintf("Tidak ditemukan pemasukan yang cocok dengan kata kunci **\"%s\"**. 🤔", keyword)
-				} else {
-					replyText = fmt.Sprintf("Tidak ditemukan transaksi yang cocok dengan kata kunci **\"%s\"**. 🤔", keyword)
-				}
-			} else if err != nil {
-				log.Printf("DB Error finding transaction by keyword: %v", err)
-				replyText = "Terjadi kesalahan saat mencari transaksi. 🥺"
-			} else {
-				SetUserState("user_1", "CONFIRM_DELETE_LAST_"+id)
-				replyText = fmt.Sprintf("Apakah Anda yakin ingin menghapus transaksi **%s** sebesar **%s**? 🤔<br><br>**1** Ya, Hapus<br>**2** Batal (Kembali)", deskripsi, formatRupiah(nominal))
-			}
-		}
-
-	case "QUERY":
-		qType := analysis.Data["queryType"].(string)
-		replyText = handleQueryAnswerGo(qType)
-
-	case "DELETE_TEMPLATE":
-		deskripsi, ok := analysis.Data["deskripsi"].(string)
-		if !ok || deskripsi == "" {
-			replyText = "Gagal memproses deskripsi template yang akan dihapus. 🥺"
-			break
-		}
-		
-		var templateID, realDesc string
-		var nominal float64
-		err := DB.QueryRow("SELECT id, deskripsi, nominal FROM recurring_templates WHERE user_id = 'user_1' AND LOWER(deskripsi) = LOWER(?)", deskripsi).Scan(&templateID, &realDesc, &nominal)
-		if err != nil {
-			err = DB.QueryRow("SELECT id, deskripsi, nominal FROM recurring_templates WHERE user_id = 'user_1' AND LOWER(deskripsi) LIKE LOWER(?)", "%"+deskripsi+"%").Scan(&templateID, &realDesc, &nominal)
-		}
-		
-		if err != nil {
-			replyText = fmt.Sprintf("Template transaksi dengan deskripsi **%s** tidak ditemukan. 🥺", deskripsi)
-		} else {
-			SetUserState("user_1", "CONFIRM_DELETE_TEMPLATE_"+templateID)
-			replyText = fmt.Sprintf("Apakah Anda yakin ingin menghapus template transaksi bulanan **%s** sebesar **%s**? 🤔<br><br>**1** Ya, Hapus<br>**2** Batal (Kembali)", realDesc, formatRupiah(nominal))
-		}
-
-	case "UPDATE_TEMPLATE":
-		targetDesc, okDesc := analysis.Data["deskripsi_target"].(string)
-		nominal, okNom := analysis.Data["nominal"].(float64)
-		dayVal, okDay := analysis.Data["day"].(int)
-		hasDay := analysis.Data["has_day"].(bool)
-		
-		if !okDesc || !okNom || !okDay {
-			replyText = "Gagal memproses data pembaruan template. 🥺"
-			break
-		}
-		
-		var templateID, realDesc string
-		err := DB.QueryRow("SELECT id, deskripsi FROM recurring_templates WHERE user_id = 'user_1' AND LOWER(deskripsi) = LOWER(?)", targetDesc).Scan(&templateID, &realDesc)
-		if err != nil {
-			err = DB.QueryRow("SELECT id, deskripsi FROM recurring_templates WHERE user_id = 'user_1' AND LOWER(deskripsi) LIKE LOWER(?)", "%"+targetDesc+"%").Scan(&templateID, &realDesc)
-		}
-		
-		if err != nil {
-			replyText = fmt.Sprintf("Template transaksi dengan deskripsi **%s** tidak ditemukan. 🥺", targetDesc)
-		} else {
-			hasDayStr := "false"
-			if hasDay {
-				hasDayStr = "true"
-			}
-			stateStr := fmt.Sprintf("CONFIRM_UPDATE_TEMPLATE_%s_%.2f_%d_%s", templateID, nominal, dayVal, hasDayStr)
-			SetUserState("user_1", stateStr)
-			
-			if hasDay {
-				replyText = fmt.Sprintf("Apakah Anda yakin ingin mengubah template **%s** menjadi **%s** setiap tanggal **%d**? 🤔<br><br>**1** Ya, Ubah<br>**2** Batal (Kembali)",
-					realDesc, formatRupiah(nominal), dayVal)
-			} else {
-				replyText = fmt.Sprintf("Apakah Anda yakin ingin mengubah nominal template **%s** menjadi **%s**? 🤔<br><br>**1** Ya, Ubah<br>**2** Batal (Kembali)",
-					realDesc, formatRupiah(nominal))
-			}
-		}
-
-	case "CREATE_TEMPLATES":
-		templatesData, ok := analysis.Data["templates"].([]map[string]interface{})
-		if !ok {
-			replyText = "Gagal memproses daftar template transaksi. 🥺"
-			break
-		}
-		
-		_, _ = DB.Exec("DELETE FROM recurring_templates WHERE user_id = 'user_1' AND status = 'pending'")
-		
-		var lines []string
-		successCount := 0
-		
-		for _, tmpl := range templatesData {
-			tipe := tmpl["tipe"].(string)
-			kategori := tmpl["kategori"].(string)
-			nominal := tmpl["nominal"].(float64)
-			deskripsi := tmpl["deskripsi"].(string)
-			dayVal := tmpl["day"].(int)
-			
+			// Insert transaction to MySQL
 			id := generateID()
-			
-			_, err := DB.Exec("INSERT INTO recurring_templates (id, user_id, tipe, kategori, nominal, deskripsi, target_day, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')",
-				id, "user_1", tipe, kategori, nominal, deskripsi, dayVal)
+			kategori := analysis.Data["kategori"].(string)
+			tipe := analysis.Data["tipe"].(string)
+			nominal := analysis.Data["nominal"].(float64)
+			status := analysis.Data["status"].(string)
+			deskripsi := analysis.Data["deskripsi"].(string)
+			tanggal := analysis.Data["tanggal"].(string)
+
+			var dueDate interface{} = nil
+			if status == "planned" {
+				// Set due date 10 days out
+				dueDate = time.Now().AddDate(0, 0, 10).Format("2006-01-02")
+			}
+
+			_, err := DB.Exec("INSERT INTO transactions (id, user_id, tanggal, deskripsi, kategori, tipe, nominal, status, due_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				id, "user_1", tanggal, deskripsi, kategori, tipe, nominal, status, dueDate, time.Now())
+
 			if err != nil {
-				log.Printf("DB Error inserting template: %v", err)
-				continue
-			}
-			
-			successCount++
-			
-			tipeLabel := "Pengeluaran"
-			if tipe == "income" {
-				tipeLabel = "Pemasukan"
-			}
-			
-			lines = append(lines, fmt.Sprintf("• **%s** (%s): %s setiap tanggal **%d**", deskripsi, tipeLabel, formatRupiah(nominal), dayVal))
-		}
-		
-		if successCount == 0 {
-			replyText = "Gagal menyimpan template transaksi ke database. 🥺"
-		} else {
-			SetUserState("user_1", "CONFIRM_CREATE_TEMPLATES")
-			replyText = fmt.Sprintf("Apakah Anda yakin ingin menambahkan **%d** template transaksi bulanan berikut? 🤔<br><br>%s<br><br>**1** Ya, Simpan<br>**2** Batal (Kembali)",
-				successCount, strings.Join(lines, "<br>"))
-		}
-
-	case "CREATE_CATEGORY":
-		id := analysis.Data["id"].(string)
-		label := analysis.Data["label"].(string)
-		tipe := analysis.Data["tipe"].(string)
-
-		_, err := DB.Exec("INSERT INTO categories (id, label, tipe, keywords) VALUES (?, ?, ?, '')", id, label, tipe)
-		if err != nil {
-			log.Printf("DB Error creating category: %v", err)
-			if strings.Contains(err.Error(), "Duplicate entry") {
-				replyText = fmt.Sprintf("Kategori dengan ID **%s** sudah terdaftar! 📁", id)
+				log.Printf("DB Error inserting transaction: %v", err)
+				replyText = "Maaf, terjadi kesalahan saat menyimpan transaksi ke database. 🥺"
 			} else {
-				replyText = "Gagal membuat kategori baru di database. 🥺"
-			}
-		} else {
-			ClearCategoryCache()
-			replyText = fmt.Sprintf("Kategori baru **%s** (%s) dengan ID **%s** berhasil ditambahkan! 📁", label, tipe, id)
-		}
-
-	case "LIST_CATEGORIES":
-		rows, err := DB.Query("SELECT id, label, tipe FROM categories ORDER BY tipe ASC, label ASC")
-		if err != nil {
-			log.Printf("DB Error listing categories: %v", err)
-			replyText = "Gagal memuat daftar kategori. 🥺"
-		} else {
-			defer rows.Close()
-			var lines []string
-			for rows.Next() {
-				var id, label, tipe string
-				if errScan := rows.Scan(&id, &label, &tipe); errScan == nil {
-					tipeLabel := "Pengeluaran"
-					if tipe == "income" {
-						tipeLabel = "Pemasukan"
-					}
-					lines = append(lines, fmt.Sprintf("• **%s** (%s) - ID: `%s`", label, tipeLabel, id))
+				statusLabel := "Lunas (Paid)"
+				if status == "planned" {
+					statusLabel = "Direncanakan (Planned)"
 				}
+				typeLabel := "Pemasukan"
+				if tipe == "expense" {
+					typeLabel = "Pengeluaran"
+				}
+				replyText = fmt.Sprintf("Catatan berhasil disimpan! 📝<br><br>**%s**: %s<br>**Nominal**: %s<br>**Kategori**: %s<br>**Status**: %s",
+					typeLabel, deskripsi, formatRupiah(nominal), kategori, statusLabel)
 			}
-			if len(lines) == 0 {
-				replyText = "Belum ada kategori terdaftar. 🤷‍♂️"
+
+		case "UPDATE_STATUS":
+			category := analysis.Data["category"].(string)
+
+			// Find oldest planned transaction for that category
+			var id, deskripsi string
+			var nominal float64
+			err := DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE kategori = ? AND status = 'planned' AND tipe = 'expense' ORDER BY tanggal ASC LIMIT 1", category).Scan(&id, &deskripsi, &nominal)
+
+			if err == sql.ErrNoRows {
+				replyText = fmt.Sprintf("Tidak ada tagihan tertunda untuk kategori **\"%s\"** yang terdaftar. 😊<br><br>Mau catat transaksi baru? Contoh: \"listrik 200rb\"", category)
+			} else if err != nil {
+				log.Printf("DB Error finding planned tx: %v", err)
+				replyText = "Maaf, ada kendala mencari tagihan di database. 🥺"
 			} else {
-				replyText = "📁 **Daftar Kategori Terdaftar**:<br><br>" + strings.Join(lines, "<br>")
-			}
-		}
-
-	case "DELETE_CATEGORY":
-		id := analysis.Data["id"].(string)
-
-		// Check if category exists
-		var label string
-		err := DB.QueryRow("SELECT label FROM categories WHERE id = ?", id).Scan(&label)
-		if err == sql.ErrNoRows {
-			replyText = fmt.Sprintf("Kategori dengan ID **%s** tidak ditemukan. 🤷‍♂️", id)
-		} else if err != nil {
-			log.Printf("DB Error checking category: %v", err)
-			replyText = "Gagal memvalidasi kategori. 🥺"
-		} else {
-			_, err = DB.Exec("DELETE FROM categories WHERE id = ?", id)
-			if err != nil {
-				log.Printf("DB Error deleting category: %v", err)
-				replyText = fmt.Sprintf("Gagal menghapus kategori **%s**. 🥺", label)
-			} else {
-				ClearCategoryCache()
-				replyText = fmt.Sprintf("Kategori **%s** (ID: `%s`) berhasil dihapus! 🗑️", label, id)
-			}
-		}
-
-	case "ADD_KEYWORDS":
-		catID := analysis.Data["category_id"].(string)
-		newKwsInput := analysis.Data["keywords"].(string)
-
-		// Check if category exists
-		var label, currentKwsStr string
-		err := DB.QueryRow("SELECT label, keywords FROM categories WHERE id = ?", catID).Scan(&label, &currentKwsStr)
-		if err == sql.ErrNoRows {
-			replyText = fmt.Sprintf("Kategori dengan ID **%s** tidak ditemukan. 🤷‍♂️", catID)
-		} else if err != nil {
-			log.Printf("DB Error checking category: %v", err)
-			replyText = "Gagal memvalidasi kategori. 🥺"
-		} else {
-			// Parse new keywords
-			var addedKws []string
-			kwMap := make(map[string]bool)
-			for _, kw := range strings.Split(currentKwsStr, ",") {
-				kwClean := strings.TrimSpace(strings.ToLower(kw))
-				if kwClean != "" {
-					kwMap[kwClean] = true
-				}
-			}
-
-			for _, kw := range strings.Split(newKwsInput, ",") {
-				kwClean := strings.TrimSpace(strings.ToLower(kw))
-				if kwClean != "" && !kwMap[kwClean] {
-					kwMap[kwClean] = true
-					addedKws = append(addedKws, kwClean)
-				}
-			}
-
-			if len(addedKws) == 0 {
-				replyText = fmt.Sprintf("Semua keyword tersebut sudah terdaftar di kategori **%s**. 📝", label)
-			} else {
-				// Reconstruct all keywords
-				var allKws []string
-				for kw := range kwMap {
-					allKws = append(allKws, kw)
-				}
-				updatedKwsStr := strings.Join(allKws, ",")
-
-				_, err = DB.Exec("UPDATE categories SET keywords = ? WHERE id = ?", updatedKwsStr, catID)
+				// Update status to paid
+				_, err = DB.Exec("UPDATE transactions SET status = 'paid' WHERE id = ?", id)
 				if err != nil {
-					log.Printf("DB Error updating keywords: %v", err)
-					replyText = "Gagal menyimpan keyword baru ke database. 🥺"
+					log.Printf("DB Error updating status: %v", err)
+					replyText = "Gagal memperbarui status tagihan. 🥺"
 				} else {
-					ClearCategoryCache()
-					replyText = fmt.Sprintf("Berhasil menambahkan keyword baru ke kategori **%s** (ID: `%s`):<br>**%s** 📝", label, catID, strings.Join(addedKws, ", "))
-				}
-			}
-		}
-
-	case "DELETE_KEYWORDS":
-		catID := analysis.Data["category_id"].(string)
-		kwsToDeleteInput := analysis.Data["keywords"].(string)
-
-		// Check if category exists
-		var label, currentKwsStr string
-		err := DB.QueryRow("SELECT label, keywords FROM categories WHERE id = ?", catID).Scan(&label, &currentKwsStr)
-		if err == sql.ErrNoRows {
-			replyText = fmt.Sprintf("Kategori dengan ID **%s** tidak ditemukan. 🤷‍♂️", catID)
-		} else if err != nil {
-			log.Printf("DB Error checking category: %v", err)
-			replyText = "Gagal memvalidasi kategori. 🥺"
-		} else {
-			// Parse keywords to delete
-			delMap := make(map[string]bool)
-			for _, kw := range strings.Split(kwsToDeleteInput, ",") {
-				kwClean := strings.TrimSpace(strings.ToLower(kw))
-				if kwClean != "" {
-					delMap[kwClean] = true
+					replyText = fmt.Sprintf("Tagihan **%s** sebesar **%s** berhasil dibayar! 💳<br>Status diperbarui menjadi Lunas (Paid).", deskripsi, formatRupiah(nominal))
 				}
 			}
 
-			// Filter existing keywords
-			var remainingKws []string
-			var removedKws []string
-			for _, kw := range strings.Split(currentKwsStr, ",") {
-				kwClean := strings.TrimSpace(strings.ToLower(kw))
-				if kwClean == "" {
+		case "DELETE_TRANSAKSI":
+			target := analysis.Data["target"].(string)
+			keyword := analysis.Data["keyword"].(string)
+			tipe := "all"
+			if t, ok := analysis.Data["tipe"].(string); ok {
+				tipe = t
+			}
+
+			if target == "last" {
+				var id, deskripsi string
+				var nominal float64
+				err := DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions ORDER BY created_at DESC, id DESC LIMIT 1").Scan(&id, &deskripsi, &nominal)
+
+				if err == sql.ErrNoRows {
+					replyText = "Tidak ada transaksi yang bisa dihapus. 🤷‍♂️"
+				} else if err != nil {
+					log.Printf("DB Error finding last transaction: %v", err)
+					replyText = "Gagal mencari transaksi terakhir di database. 🥺"
+				} else {
+					SetUserState("user_1", "CONFIRM_DELETE_LAST_"+id)
+					replyText = fmt.Sprintf("Apakah Anda yakin ingin menghapus transaksi terakhir **%s** sebesar **%s**? 🤔<br><br>**1** Ya, Hapus<br>**2** Batal (Kembali)", deskripsi, formatRupiah(nominal))
+				}
+			} else {
+				var id, deskripsi string
+				var nominal float64
+
+				likeKeyword := "%" + keyword + "%"
+				var err error
+				if tipe == "all" {
+					err = DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE deskripsi LIKE ? OR kategori LIKE ? ORDER BY created_at DESC, id DESC LIMIT 1", likeKeyword, likeKeyword).Scan(&id, &deskripsi, &nominal)
+				} else {
+					err = DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE (deskripsi LIKE ? OR kategori LIKE ?) AND tipe = ? ORDER BY created_at DESC, id DESC LIMIT 1", likeKeyword, likeKeyword, tipe).Scan(&id, &deskripsi, &nominal)
+				}
+
+				if err == sql.ErrNoRows {
+					if tipe == "expense" {
+						replyText = fmt.Sprintf("Tidak ditemukan pengeluaran yang cocok dengan kata kunci **\"%s\"**. 🤔", keyword)
+					} else if tipe == "income" {
+						replyText = fmt.Sprintf("Tidak ditemukan pemasukan yang cocok dengan kata kunci **\"%s\"**. 🤔", keyword)
+					} else {
+						replyText = fmt.Sprintf("Tidak ditemukan transaksi yang cocok dengan kata kunci **\"%s\"**. 🤔", keyword)
+					}
+				} else if err != nil {
+					log.Printf("DB Error finding transaction by keyword: %v", err)
+					replyText = "Terjadi kesalahan saat mencari transaksi. 🥺"
+				} else {
+					SetUserState("user_1", "CONFIRM_DELETE_LAST_"+id)
+					replyText = fmt.Sprintf("Apakah Anda yakin ingin menghapus transaksi **%s** sebesar **%s**? 🤔<br><br>**1** Ya, Hapus<br>**2** Batal (Kembali)", deskripsi, formatRupiah(nominal))
+				}
+			}
+
+		case "QUERY":
+			qType := analysis.Data["queryType"].(string)
+			replyText = handleQueryAnswerGo(qType)
+
+		case "DELETE_TEMPLATE":
+			deskripsi, ok := analysis.Data["deskripsi"].(string)
+			if !ok || deskripsi == "" {
+				replyText = "Gagal memproses deskripsi template yang akan dihapus. 🥺"
+				break
+			}
+
+			var templateID, realDesc string
+			var nominal float64
+			err := DB.QueryRow("SELECT id, deskripsi, nominal FROM recurring_templates WHERE user_id = 'user_1' AND LOWER(deskripsi) = LOWER(?)", deskripsi).Scan(&templateID, &realDesc, &nominal)
+			if err != nil {
+				err = DB.QueryRow("SELECT id, deskripsi, nominal FROM recurring_templates WHERE user_id = 'user_1' AND LOWER(deskripsi) LIKE LOWER(?)", "%"+deskripsi+"%").Scan(&templateID, &realDesc, &nominal)
+			}
+
+			if err != nil {
+				replyText = fmt.Sprintf("Template transaksi dengan deskripsi **%s** tidak ditemukan. 🥺", deskripsi)
+			} else {
+				SetUserState("user_1", "CONFIRM_DELETE_TEMPLATE_"+templateID)
+				replyText = fmt.Sprintf("Apakah Anda yakin ingin menghapus template transaksi bulanan **%s** sebesar **%s**? 🤔<br><br>**1** Ya, Hapus<br>**2** Batal (Kembali)", realDesc, formatRupiah(nominal))
+			}
+
+		case "UPDATE_TEMPLATE":
+			targetDesc, okDesc := analysis.Data["deskripsi_target"].(string)
+			nominal, okNom := analysis.Data["nominal"].(float64)
+			dayVal, okDay := analysis.Data["day"].(int)
+			hasDay := analysis.Data["has_day"].(bool)
+
+			if !okDesc || !okNom || !okDay {
+				replyText = "Gagal memproses data pembaruan template. 🥺"
+				break
+			}
+
+			var templateID, realDesc string
+			err := DB.QueryRow("SELECT id, deskripsi FROM recurring_templates WHERE user_id = 'user_1' AND LOWER(deskripsi) = LOWER(?)", targetDesc).Scan(&templateID, &realDesc)
+			if err != nil {
+				err = DB.QueryRow("SELECT id, deskripsi FROM recurring_templates WHERE user_id = 'user_1' AND LOWER(deskripsi) LIKE LOWER(?)", "%"+targetDesc+"%").Scan(&templateID, &realDesc)
+			}
+
+			if err != nil {
+				replyText = fmt.Sprintf("Template transaksi dengan deskripsi **%s** tidak ditemukan. 🥺", targetDesc)
+			} else {
+				hasDayStr := "false"
+				if hasDay {
+					hasDayStr = "true"
+				}
+				stateStr := fmt.Sprintf("CONFIRM_UPDATE_TEMPLATE_%s_%.2f_%d_%s", templateID, nominal, dayVal, hasDayStr)
+				SetUserState("user_1", stateStr)
+
+				if hasDay {
+					replyText = fmt.Sprintf("Apakah Anda yakin ingin mengubah template **%s** menjadi **%s** setiap tanggal **%d**? 🤔<br><br>**1** Ya, Ubah<br>**2** Batal (Kembali)",
+						realDesc, formatRupiah(nominal), dayVal)
+				} else {
+					replyText = fmt.Sprintf("Apakah Anda yakin ingin mengubah nominal template **%s** menjadi **%s**? 🤔<br><br>**1** Ya, Ubah<br>**2** Batal (Kembali)",
+						realDesc, formatRupiah(nominal))
+				}
+			}
+
+		case "CREATE_TEMPLATES":
+			templatesData, ok := analysis.Data["templates"].([]map[string]interface{})
+			if !ok {
+				replyText = "Gagal memproses daftar template transaksi. 🥺"
+				break
+			}
+
+			_, _ = DB.Exec("DELETE FROM recurring_templates WHERE user_id = 'user_1' AND status = 'pending'")
+
+			var lines []string
+			successCount := 0
+
+			for _, tmpl := range templatesData {
+				tipe := tmpl["tipe"].(string)
+				kategori := tmpl["kategori"].(string)
+				nominal := tmpl["nominal"].(float64)
+				deskripsi := tmpl["deskripsi"].(string)
+				dayVal := tmpl["day"].(int)
+
+				id := generateID()
+
+				_, err := DB.Exec("INSERT INTO recurring_templates (id, user_id, tipe, kategori, nominal, deskripsi, target_day, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')",
+					id, "user_1", tipe, kategori, nominal, deskripsi, dayVal)
+				if err != nil {
+					log.Printf("DB Error inserting template: %v", err)
 					continue
 				}
-				if delMap[kwClean] {
-					removedKws = append(removedKws, kwClean)
+
+				successCount++
+
+				tipeLabel := "Pengeluaran"
+				if tipe == "income" {
+					tipeLabel = "Pemasukan"
+				}
+
+				lines = append(lines, fmt.Sprintf("• **%s** (%s): %s setiap tanggal **%d**", deskripsi, tipeLabel, formatRupiah(nominal), dayVal))
+			}
+
+			if successCount == 0 {
+				replyText = "Gagal menyimpan template transaksi ke database. 🥺"
+			} else {
+				SetUserState("user_1", "CONFIRM_CREATE_TEMPLATES")
+				replyText = fmt.Sprintf("Apakah Anda yakin ingin menambahkan **%d** template transaksi bulanan berikut? 🤔<br><br>%s<br><br>**1** Ya, Simpan<br>**2** Batal (Kembali)",
+					successCount, strings.Join(lines, "<br>"))
+			}
+
+		case "CREATE_CATEGORY":
+			id := analysis.Data["id"].(string)
+			label := analysis.Data["label"].(string)
+			tipe := analysis.Data["tipe"].(string)
+
+			_, err := DB.Exec("INSERT INTO categories (id, label, tipe, keywords) VALUES (?, ?, ?, '')", id, label, tipe)
+			if err != nil {
+				log.Printf("DB Error creating category: %v", err)
+				if strings.Contains(err.Error(), "Duplicate entry") {
+					replyText = fmt.Sprintf("Kategori dengan ID **%s** sudah terdaftar! 📁", id)
 				} else {
-					remainingKws = append(remainingKws, kwClean)
+					replyText = "Gagal membuat kategori baru di database. 🥺"
+				}
+			} else {
+				ClearCategoryCache()
+				replyText = fmt.Sprintf("Kategori baru **%s** (%s) dengan ID **%s** berhasil ditambahkan! 📁", label, tipe, id)
+			}
+
+		case "LIST_CATEGORIES":
+			rows, err := DB.Query("SELECT id, label, tipe FROM categories ORDER BY tipe ASC, label ASC")
+			if err != nil {
+				log.Printf("DB Error listing categories: %v", err)
+				replyText = "Gagal memuat daftar kategori. 🥺"
+			} else {
+				defer rows.Close()
+				var lines []string
+				for rows.Next() {
+					var id, label, tipe string
+					if errScan := rows.Scan(&id, &label, &tipe); errScan == nil {
+						tipeLabel := "Pengeluaran"
+						if tipe == "income" {
+							tipeLabel = "Pemasukan"
+						}
+						lines = append(lines, fmt.Sprintf("• **%s** (%s) - ID: `%s`", label, tipeLabel, id))
+					}
+				}
+				if len(lines) == 0 {
+					replyText = "Belum ada kategori terdaftar. 🤷‍♂️"
+				} else {
+					replyText = "📁 **Daftar Kategori Terdaftar**:<br><br>" + strings.Join(lines, "<br>")
 				}
 			}
 
-			if len(removedKws) == 0 {
-				replyText = fmt.Sprintf("Tidak ada keyword yang cocok untuk dihapus dari kategori **%s**. 🤔", label)
+		case "DELETE_CATEGORY":
+			id := analysis.Data["id"].(string)
+
+			// Check if category exists
+			var label string
+			err := DB.QueryRow("SELECT label FROM categories WHERE id = ?", id).Scan(&label)
+			if err == sql.ErrNoRows {
+				replyText = fmt.Sprintf("Kategori dengan ID **%s** tidak ditemukan. 🤷‍♂️", id)
+			} else if err != nil {
+				log.Printf("DB Error checking category: %v", err)
+				replyText = "Gagal memvalidasi kategori. 🥺"
 			} else {
-				updatedKwsStr := strings.Join(remainingKws, ",")
-				_, err = DB.Exec("UPDATE categories SET keywords = ? WHERE id = ?", updatedKwsStr, catID)
+				_, err = DB.Exec("DELETE FROM categories WHERE id = ?", id)
 				if err != nil {
-					log.Printf("DB Error updating keywords: %v", err)
-					replyText = "Gagal memperbarui keyword di database. 🥺"
+					log.Printf("DB Error deleting category: %v", err)
+					replyText = fmt.Sprintf("Gagal menghapus kategori **%s**. 🥺", label)
 				} else {
 					ClearCategoryCache()
-					replyText = fmt.Sprintf("Berhasil menghapus keyword dari kategori **%s** (ID: `%s`):<br>**%s** 🗑️", label, catID, strings.Join(removedKws, ", "))
-				}
-			}
-		}
-
-	case "LIST_KEYWORDS":
-		catID := analysis.Data["category_id"].(string)
-
-		// Check if category exists
-		var label, keywordsStr string
-		err := DB.QueryRow("SELECT label, keywords FROM categories WHERE id = ?", catID).Scan(&label, &keywordsStr)
-		if err == sql.ErrNoRows {
-			replyText = fmt.Sprintf("Kategori dengan ID **%s** tidak ditemukan. 🤷‍♂️", catID)
-		} else if err != nil {
-			log.Printf("DB Error checking category: %v", err)
-			replyText = "Gagal memvalidasi kategori. 🥺"
-		} else {
-			var kws []string
-			for _, kw := range strings.Split(keywordsStr, ",") {
-				kwClean := strings.TrimSpace(kw)
-				if kwClean != "" {
-					kws = append(kws, kwClean)
+					replyText = fmt.Sprintf("Kategori **%s** (ID: `%s`) berhasil dihapus! 🗑️", label, id)
 				}
 			}
 
-			if len(kws) == 0 {
-				replyText = fmt.Sprintf("Kategori **%s** (ID: `%s`) belum memiliki keyword. 📝", label, catID)
+		case "ADD_KEYWORDS":
+			catID := analysis.Data["category_id"].(string)
+			newKwsInput := analysis.Data["keywords"].(string)
+
+			// Check if category exists
+			var label, currentKwsStr string
+			err := DB.QueryRow("SELECT label, keywords FROM categories WHERE id = ?", catID).Scan(&label, &currentKwsStr)
+			if err == sql.ErrNoRows {
+				replyText = fmt.Sprintf("Kategori dengan ID **%s** tidak ditemukan. 🤷‍♂️", catID)
+			} else if err != nil {
+				log.Printf("DB Error checking category: %v", err)
+				replyText = "Gagal memvalidasi kategori. 🥺"
 			} else {
-				replyText = fmt.Sprintf("📝 **Keyword Kategori %s** (ID: `%s`):<br><br>%s", label, catID, strings.Join(kws, ", "))
+				// Parse new keywords
+				var addedKws []string
+				kwMap := make(map[string]bool)
+				for _, kw := range strings.Split(currentKwsStr, ",") {
+					kwClean := strings.TrimSpace(strings.ToLower(kw))
+					if kwClean != "" {
+						kwMap[kwClean] = true
+					}
+				}
+
+				for _, kw := range strings.Split(newKwsInput, ",") {
+					kwClean := strings.TrimSpace(strings.ToLower(kw))
+					if kwClean != "" && !kwMap[kwClean] {
+						kwMap[kwClean] = true
+						addedKws = append(addedKws, kwClean)
+					}
+				}
+
+				if len(addedKws) == 0 {
+					replyText = fmt.Sprintf("Semua keyword tersebut sudah terdaftar di kategori **%s**. 📝", label)
+				} else {
+					// Reconstruct all keywords
+					var allKws []string
+					for kw := range kwMap {
+						allKws = append(allKws, kw)
+					}
+					updatedKwsStr := strings.Join(allKws, ",")
+
+					_, err = DB.Exec("UPDATE categories SET keywords = ? WHERE id = ?", updatedKwsStr, catID)
+					if err != nil {
+						log.Printf("DB Error updating keywords: %v", err)
+						replyText = "Gagal menyimpan keyword baru ke database. 🥺"
+					} else {
+						ClearCategoryCache()
+						replyText = fmt.Sprintf("Berhasil menambahkan keyword baru ke kategori **%s** (ID: `%s`):<br>**%s** 📝", label, catID, strings.Join(addedKws, ", "))
+					}
+				}
 			}
-		}
 
-	case "QUERY_SALARY_DAY":
-		dayVal := GetSalaryDay("user_1")
-		now := time.Now()
-		start, end := getMonthCycleBounds(now.Year(), int(now.Month()), dayVal)
-		if dayVal == 1 {
-			replyText = fmt.Sprintf("Tanggal gajian Anda diatur ke tanggal **%d** (Menggunakan siklus bulan kalender standar). ⚙️<br><br>Siklus finansial Anda bulan ini: **%s** s/d **%s**.", 
-				dayVal, formatDateIndo(start), formatDateIndo(end))
-		} else {
-			replyText = fmt.Sprintf("Tanggal gajian Anda diatur ke tanggal **%d** setiap bulannya. ⚙️<br><br>Siklus finansial Anda bulan ini: **%s** s/d **%s**.", 
-				dayVal, formatDateIndo(start), formatDateIndo(end))
-		}
+		case "DELETE_KEYWORDS":
+			catID := analysis.Data["category_id"].(string)
+			kwsToDeleteInput := analysis.Data["keywords"].(string)
 
-	case "SET_SALARY_DAY":
-		dayVal := 1
-		if dVal, ok := analysis.Data["day"].(int); ok {
-			dayVal = dVal
-		} else if dValFloat, ok := analysis.Data["day"].(float64); ok {
-			dayVal = int(dValFloat)
-		}
-		SetSalaryDay("user_1", dayVal)
-		
-		if dayVal == 1 {
-			replyText = "Tanggal gajian berhasil diatur ke tanggal **1** (Menggunakan siklus bulan kalender standar). ⚙️"
-		} else {
+			// Check if category exists
+			var label, currentKwsStr string
+			err := DB.QueryRow("SELECT label, keywords FROM categories WHERE id = ?", catID).Scan(&label, &currentKwsStr)
+			if err == sql.ErrNoRows {
+				replyText = fmt.Sprintf("Kategori dengan ID **%s** tidak ditemukan. 🤷‍♂️", catID)
+			} else if err != nil {
+				log.Printf("DB Error checking category: %v", err)
+				replyText = "Gagal memvalidasi kategori. 🥺"
+			} else {
+				// Parse keywords to delete
+				delMap := make(map[string]bool)
+				for _, kw := range strings.Split(kwsToDeleteInput, ",") {
+					kwClean := strings.TrimSpace(strings.ToLower(kw))
+					if kwClean != "" {
+						delMap[kwClean] = true
+					}
+				}
+
+				// Filter existing keywords
+				var remainingKws []string
+				var removedKws []string
+				for _, kw := range strings.Split(currentKwsStr, ",") {
+					kwClean := strings.TrimSpace(strings.ToLower(kw))
+					if kwClean == "" {
+						continue
+					}
+					if delMap[kwClean] {
+						removedKws = append(removedKws, kwClean)
+					} else {
+						remainingKws = append(remainingKws, kwClean)
+					}
+				}
+
+				if len(removedKws) == 0 {
+					replyText = fmt.Sprintf("Tidak ada keyword yang cocok untuk dihapus dari kategori **%s**. 🤔", label)
+				} else {
+					updatedKwsStr := strings.Join(remainingKws, ",")
+					_, err = DB.Exec("UPDATE categories SET keywords = ? WHERE id = ?", updatedKwsStr, catID)
+					if err != nil {
+						log.Printf("DB Error updating keywords: %v", err)
+						replyText = "Gagal memperbarui keyword di database. 🥺"
+					} else {
+						ClearCategoryCache()
+						replyText = fmt.Sprintf("Berhasil menghapus keyword dari kategori **%s** (ID: `%s`):<br>**%s** 🗑️", label, catID, strings.Join(removedKws, ", "))
+					}
+				}
+			}
+
+		case "LIST_KEYWORDS":
+			catID := analysis.Data["category_id"].(string)
+
+			// Check if category exists
+			var label, keywordsStr string
+			err := DB.QueryRow("SELECT label, keywords FROM categories WHERE id = ?", catID).Scan(&label, &keywordsStr)
+			if err == sql.ErrNoRows {
+				replyText = fmt.Sprintf("Kategori dengan ID **%s** tidak ditemukan. 🤷‍♂️", catID)
+			} else if err != nil {
+				log.Printf("DB Error checking category: %v", err)
+				replyText = "Gagal memvalidasi kategori. 🥺"
+			} else {
+				var kws []string
+				for _, kw := range strings.Split(keywordsStr, ",") {
+					kwClean := strings.TrimSpace(kw)
+					if kwClean != "" {
+						kws = append(kws, kwClean)
+					}
+				}
+
+				if len(kws) == 0 {
+					replyText = fmt.Sprintf("Kategori **%s** (ID: `%s`) belum memiliki keyword. 📝", label, catID)
+				} else {
+					replyText = fmt.Sprintf("📝 **Keyword Kategori %s** (ID: `%s`):<br><br>%s", label, catID, strings.Join(kws, ", "))
+				}
+			}
+
+		case "QUERY_SALARY_DAY":
+			dayVal := GetSalaryDay("user_1")
 			now := time.Now()
 			start, end := getMonthCycleBounds(now.Year(), int(now.Month()), dayVal)
-			replyText = fmt.Sprintf("Tanggal gajian berhasil diatur ke tanggal **%d** setiap bulannya. ⚙️<br><br>Siklus finansial Anda bulan ini: **%s** s/d **%s**.", 
-				dayVal, formatDateIndo(start), formatDateIndo(end))
-		}
-
-	case "DOWNLOAD_TRANSACTIONS":
-		tipe := "expense"
-		if tVal, ok := analysis.Data["tipe"].(string); ok {
-			tipe = tVal
-		}
-		
-		month := int(time.Now().Month())
-		if mVal, ok := analysis.Data["month"].(int); ok {
-			month = mVal
-		} else if mValFloat, ok := analysis.Data["month"].(float64); ok {
-			month = int(mValFloat)
-		}
-		
-		year := time.Now().Year()
-		if yVal, ok := analysis.Data["year"].(int); ok {
-			year = yVal
-		} else if yValFloat, ok := analysis.Data["year"].(float64); ok {
-			year = int(yValFloat)
-		}
-		
-		format := "pdf"
-		if fVal, ok := analysis.Data["format"].(string); ok {
-			format = fVal
-		}
-		
-		monthNamesIndo := []string{
-			"", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-			"Juli", "Agustus", "September", "Oktober", "November", "Desember",
-		}
-		monthName := "Bulan"
-		if month >= 1 && month <= 12 {
-			monthName = monthNamesIndo[month]
-		}
-		
-		typeLabel := "Pengeluaran"
-		if tipe == "income" {
-			typeLabel = "Pemasukan"
-		} else if tipe == "all" {
-			typeLabel = "Transaksi"
-		}
-		
-		formatLabel := strings.ToUpper(format)
-		fileExt := "." + format
-		if format == "xls" {
-			fileExt = ".xlsx"
-			formatLabel = "Excel (XLSX)"
-		} else if format == "word" {
-			fileExt = ".doc"
-			formatLabel = "Word (DOC)"
-		}
-		
-		salaryDay := GetSalaryDay("user_1")
-		start, end := getMonthCycleBounds(year, month, salaryDay)
-		startStr := start.Format("2006-01-02")
-		endStr := end.Format("2006-01-02")
-		
-		downloadURL := fmt.Sprintf("/api/download/%s?tipe=%s&start_date=%s&end_date=%s", format, tipe, startStr, endStr)
-		fileName := fmt.Sprintf("laporan_%s_%s_%s%s", tipe, strings.ReplaceAll(startStr, "-", ""), strings.ReplaceAll(endStr, "-", ""), fileExt)
-		
-		iconColor := "#f43f5e"
-		iconText := "PDF"
-		if format == "xls" {
-			iconColor = "#10b981"
-			iconText = "XLSX"
-		} else if format == "word" {
-			iconColor = "#3b82f6"
-			iconText = "DOC"
-		}
-		
-		replyText = fmt.Sprintf(`Silakan unduh rincian **%s** Anda untuk **%s %d** (%s s/d %s):<br><a href="%s" download class="block mt-2 no-underline"><div class="flex items-center gap-3 p-2.5 bg-[#111b21] hover:bg-[#202c33] rounded border border-white/10 transition cursor-pointer text-[#e9edef]"><div class="w-9 h-9 rounded flex justify-center items-center font-bold text-white text-[10px] shrink-0" style="background-color: %s;">%s</div><div class="flex-grow min-w-0 leading-tight"><div class="font-semibold text-[11px] truncate">%s</div><div class="text-[9px] text-[#8696a0] mt-0.5">Unduh dokumen %s</div></div><div class="text-[#00a884] shrink-0"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg></div></div></a>`,
-			typeLabel, monthName, year, formatDateIndo(start), formatDateIndo(end), downloadURL, iconColor, iconText, fileName, formatLabel)
-
-	case "DOWNLOAD_TRANSACTIONS_RANGE":
-		tipe := "expense"
-		if tVal, ok := analysis.Data["tipe"].(string); ok {
-			tipe = tVal
-		}
-		
-		startStr := analysis.Data["start_date"].(string)
-		endStr := analysis.Data["end_date"].(string)
-		
-		format := "pdf"
-		if fVal, ok := analysis.Data["format"].(string); ok {
-			format = fVal
-		}
-		
-		typeLabel := "Pengeluaran"
-		if tipe == "income" {
-			typeLabel = "Pemasukan"
-		} else if tipe == "all" {
-			typeLabel = "Transaksi"
-		}
-		
-		formatLabel := strings.ToUpper(format)
-		fileExt := "." + format
-		if format == "xls" {
-			fileExt = ".xlsx"
-			formatLabel = "Excel (XLSX)"
-		} else if format == "word" {
-			fileExt = ".doc"
-			formatLabel = "Word (DOC)"
-		}
-		
-		downloadURL := fmt.Sprintf("/api/download/%s?tipe=%s&start_date=%s&end_date=%s", format, tipe, startStr, endStr)
-		fileName := fmt.Sprintf("laporan_%s_%s_%s%s", tipe, strings.ReplaceAll(startStr, "-", ""), strings.ReplaceAll(endStr, "-", ""), fileExt)
-		
-		iconColor := "#f43f5e"
-		iconText := "PDF"
-		if format == "xls" {
-			iconColor = "#10b981"
-			iconText = "XLSX"
-		} else if format == "word" {
-			iconColor = "#3b82f6"
-			iconText = "DOC"
-		}
-		
-		periodLabel := fmt.Sprintf("%s s/d %s", formatStrDateIndo(startStr), formatStrDateIndo(endStr))
-		
-		replyText = fmt.Sprintf(`Silakan unduh rincian **%s** Anda untuk periode **%s**:<br><a href="%s" download class="block mt-2 no-underline"><div class="flex items-center gap-3 p-2.5 bg-[#111b21] hover:bg-[#202c33] rounded border border-white/10 transition cursor-pointer text-[#e9edef]"><div class="w-9 h-9 rounded flex justify-center items-center font-bold text-white text-[10px] shrink-0" style="background-color: %s;">%s</div><div class="flex-grow min-w-0 leading-tight"><div class="font-semibold text-[11px] truncate">%s</div><div class="text-[9px] text-[#8696a0] mt-0.5">Unduh dokumen %s</div></div><div class="text-[#00a884] shrink-0"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg></div></div></a>`,
-			typeLabel, periodLabel, downloadURL, iconColor, iconText, fileName, formatLabel)
-
-	case "LIST_TRANSACTIONS_BY_MONTH":
-		tipe := "expense"
-		if tVal, ok := analysis.Data["tipe"].(string); ok {
-			tipe = tVal
-		}
-		
-		month := int(time.Now().Month())
-		if mVal, ok := analysis.Data["month"].(int); ok {
-			month = mVal
-		} else if mValFloat, ok := analysis.Data["month"].(float64); ok {
-			month = int(mValFloat)
-		}
-		
-		year := time.Now().Year()
-		if yVal, ok := analysis.Data["year"].(int); ok {
-			year = yVal
-		} else if yValFloat, ok := analysis.Data["year"].(float64); ok {
-			year = int(yValFloat)
-		}
-		
-		catLabels := map[string]string{}
-		catRows, errCat := DB.Query("SELECT id, label FROM categories")
-		if errCat == nil {
-			defer catRows.Close()
-			for catRows.Next() {
-				var cid, clabel string
-				if errScan := catRows.Scan(&cid, &clabel); errScan == nil {
-					catLabels[cid] = clabel
-				}
-			}
-		}
-		
-		monthNamesIndo := []string{
-			"", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-			"Juli", "Agustus", "September", "Oktober", "November", "Desember",
-		}
-		monthName := "Bulan"
-		if month >= 1 && month <= 12 {
-			monthName = monthNamesIndo[month]
-		}
-		
-		salaryDay := GetSalaryDay("user_1")
-		start, end := getMonthCycleBounds(year, month, salaryDay)
-		startStr := start.Format("2006-01-02")
-		endStr := end.Format("2006-01-02")
-		
-		var rows *sql.Rows
-		var err error
-		if tipe == "all" {
-			rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", startStr, endStr)
-		} else {
-			rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tipe = ? AND tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", tipe, startStr, endStr)
-		}
-		
-		if err != nil {
-			log.Printf("DB Error querying transactions by month: %v", err)
-			replyText = "Gagal memuat rincian transaksi dari database. 🥺"
-		} else {
-			defer rows.Close()
-			var lines []string
-			var totalExpense, totalIncome float64
-			for rows.Next() {
-				var tanggal, deskripsi, kategori, rowTipe, status string
-				var nominal float64
-				if errScan := rows.Scan(&tanggal, &deskripsi, &kategori, &rowTipe, &nominal, &status); errScan == nil {
-					dateStr := tanggal
-					if len(tanggal) >= 10 {
-						dateStr = tanggal[:10]
-					}
-					tParts := strings.Split(dateStr, "-")
-					if len(tParts) == 3 {
-						dateStr = tParts[2] + "/" + tParts[1]
-					}
-					
-					catLabel, exists := catLabels[kategori]
-					if !exists {
-						catLabel = kategori
-						if len(catLabel) > 0 {
-							catLabel = strings.ToUpper(catLabel[0:1]) + catLabel[1:]
-						}
-					}
-					
-					statusSuffix := ""
-					if status == "planned" {
-						statusSuffix = " *(Planned)*"
-					}
-					
-					sign := ""
-					if tipe == "all" {
-						if rowTipe == "income" {
-							sign = "[+] "
-						} else {
-							sign = "[-] "
-						}
-					}
-					
-					line := fmt.Sprintf("• [%s] %s%s (%s): **%s**%s", dateStr, sign, deskripsi, catLabel, formatRupiah(nominal), statusSuffix)
-					lines = append(lines, line)
-					
-					if rowTipe == "income" {
-						totalIncome += nominal
-					} else {
-						totalExpense += nominal
-					}
-				}
-			}
-			
-			periodLabel := fmt.Sprintf("%s %d (%s s/d %s)", monthName, year, formatDateIndo(start), formatDateIndo(end))
-			
-			if len(lines) == 0 {
-				typeLabel := "transaksi"
-				if tipe == "expense" {
-					typeLabel = "pengeluaran"
-				} else if tipe == "income" {
-					typeLabel = "pemasukan"
-				}
-				replyText = fmt.Sprintf("Tidak ada %s yang tercatat untuk periode **%s**. 🤷‍♂️", typeLabel, periodLabel)
+			if dayVal == 1 {
+				replyText = fmt.Sprintf("Tanggal gajian Anda diatur ke tanggal **%d** (Menggunakan siklus bulan kalender standar). ⚙️<br><br>Siklus finansial Anda bulan ini: **%s** s/d **%s**.",
+					dayVal, formatDateIndo(start), formatDateIndo(end))
 			} else {
-				var totalText string
-				if tipe == "expense" {
-					totalText = fmt.Sprintf("<br>**Total Pengeluaran**: %s", formatRupiah(totalExpense))
-				} else if tipe == "income" {
-					totalText = fmt.Sprintf("<br>**Total Pemasukan**: %s", formatRupiah(totalIncome))
-				} else {
-					totalText = fmt.Sprintf("<br>**Total Pemasukan**: %s<br>**Total Pengeluaran**: %s<br>**Selisih**: %s",
-						formatRupiah(totalIncome), formatRupiah(totalExpense), formatRupiah(totalIncome-totalExpense))
-				}
-				
-				header := "🧾 **Daftar Rincian Pengeluaran**"
-				if tipe == "income" {
-					header = "🧾 **Daftar Rincian Pemasukan**"
-				} else if tipe == "all" {
-					header = "🧾 **Daftar Rincian Transaksi**"
-				}
-				
-				replyText = fmt.Sprintf("%s (%s):<br><br>%s<br>%s", header, periodLabel, strings.Join(lines, "<br>"), totalText)
+				replyText = fmt.Sprintf("Tanggal gajian Anda diatur ke tanggal **%d** setiap bulannya. ⚙️<br><br>Siklus finansial Anda bulan ini: **%s** s/d **%s**.",
+					dayVal, formatDateIndo(start), formatDateIndo(end))
 			}
-		}
 
-	case "LIST_TRANSACTIONS_RANGE":
-		tipe := "expense"
-		if tVal, ok := analysis.Data["tipe"].(string); ok {
-			tipe = tVal
-		}
-		
-		startStr := analysis.Data["start_date"].(string)
-		endStr := analysis.Data["end_date"].(string)
-		
-		tStart, _ := time.Parse("2006-01-02", startStr)
-		tEnd, _ := time.Parse("2006-01-02", endStr)
-		
-		catLabels := map[string]string{}
-		catRows, errCat := DB.Query("SELECT id, label FROM categories")
-		if errCat == nil {
-			defer catRows.Close()
-			for catRows.Next() {
-				var cid, clabel string
-				if errScan := catRows.Scan(&cid, &clabel); errScan == nil {
-					catLabels[cid] = clabel
-				}
+		case "SET_SALARY_DAY":
+			dayVal := 1
+			if dVal, ok := analysis.Data["day"].(int); ok {
+				dayVal = dVal
+			} else if dValFloat, ok := analysis.Data["day"].(float64); ok {
+				dayVal = int(dValFloat)
 			}
-		}
-		
-		var rows *sql.Rows
-		var err error
-		if tipe == "all" {
-			rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", startStr, endStr)
-		} else {
-			rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tipe = ? AND tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", tipe, startStr, endStr)
-		}
-		
-		if err != nil {
-			log.Printf("DB Error querying transactions by range: %v", err)
-			replyText = "Gagal memuat rincian transaksi dari database. 🥺"
-		} else {
-			defer rows.Close()
-			var lines []string
-			var totalExpense, totalIncome float64
-			for rows.Next() {
-				var tanggal, deskripsi, kategori, rowTipe, status string
-				var nominal float64
-				if errScan := rows.Scan(&tanggal, &deskripsi, &kategori, &rowTipe, &nominal, &status); errScan == nil {
-					dateStr := tanggal
-					if len(tanggal) >= 10 {
-						dateStr = tanggal[:10]
-					}
-					tParts := strings.Split(dateStr, "-")
-					if len(tParts) == 3 {
-						dateStr = tParts[2] + "/" + tParts[1]
-					}
-					
-					catLabel, exists := catLabels[kategori]
-					if !exists {
-						catLabel = kategori
-						if len(catLabel) > 0 {
-							catLabel = strings.ToUpper(catLabel[0:1]) + catLabel[1:]
-						}
-					}
-					
-					statusSuffix := ""
-					if status == "planned" {
-						statusSuffix = " *(Planned)*"
-					}
-					
-					sign := ""
-					if tipe == "all" {
-						if rowTipe == "income" {
-							sign = "[+] "
-						} else {
-							sign = "[-] "
-						}
-					}
-					
-					line := fmt.Sprintf("• [%s] %s%s (%s): **%s**%s", dateStr, sign, deskripsi, catLabel, formatRupiah(nominal), statusSuffix)
-					lines = append(lines, line)
-					
-					if rowTipe == "income" {
-						totalIncome += nominal
-					} else {
-						totalExpense += nominal
-					}
-				}
-			}
-			
-			periodLabel := fmt.Sprintf("%s s/d %s", formatDateIndo(tStart), formatDateIndo(tEnd))
-			
-			if len(lines) == 0 {
-				typeLabel := "transaksi"
-				if tipe == "expense" {
-					typeLabel = "pengeluaran"
-				} else if tipe == "income" {
-					typeLabel = "pemasukan"
-				}
-				replyText = fmt.Sprintf("Tidak ada %s yang tercatat untuk periode **%s**. 🤷‍♂️", typeLabel, periodLabel)
+			SetSalaryDay("user_1", dayVal)
+
+			if dayVal == 1 {
+				replyText = "Tanggal gajian berhasil diatur ke tanggal **1** (Menggunakan siklus bulan kalender standar). ⚙️"
 			} else {
-				var totalText string
-				if tipe == "expense" {
-					totalText = fmt.Sprintf("<br>**Total Pengeluaran**: %s", formatRupiah(totalExpense))
-				} else if tipe == "income" {
-					totalText = fmt.Sprintf("<br>**Total Pemasukan**: %s", formatRupiah(totalIncome))
-				} else {
-					totalText = fmt.Sprintf("<br>**Total Pemasukan**: %s<br>**Total Pengeluaran**: %s<br>**Selisih**: %s",
-						formatRupiah(totalIncome), formatRupiah(totalExpense), formatRupiah(totalIncome-totalExpense))
-				}
-				
-				header := "🧾 **Daftar Rincian Pengeluaran**"
-				if tipe == "income" {
-					header = "🧾 **Daftar Rincian Pemasukan**"
-				} else if tipe == "all" {
-					header = "🧾 **Daftar Rincian Transaksi**"
-				}
-				
-				replyText = fmt.Sprintf("%s (%s):<br><br>%s<br>%s", header, periodLabel, strings.Join(lines, "<br>"), totalText)
+				now := time.Now()
+				start, end := getMonthCycleBounds(now.Year(), int(now.Month()), dayVal)
+				replyText = fmt.Sprintf("Tanggal gajian berhasil diatur ke tanggal **%d** setiap bulannya. ⚙️<br><br>Siklus finansial Anda bulan ini: **%s** s/d **%s**.",
+					dayVal, formatDateIndo(start), formatDateIndo(end))
 			}
-		}
 
-	default:
-		replyText = "Maaf, bisa ulangi dengan format yang lebih jelas? 😊"
+		case "DOWNLOAD_TRANSACTIONS":
+			tipe := "expense"
+			if tVal, ok := analysis.Data["tipe"].(string); ok {
+				tipe = tVal
+			}
+
+			month := int(time.Now().Month())
+			if mVal, ok := analysis.Data["month"].(int); ok {
+				month = mVal
+			} else if mValFloat, ok := analysis.Data["month"].(float64); ok {
+				month = int(mValFloat)
+			}
+
+			year := time.Now().Year()
+			if yVal, ok := analysis.Data["year"].(int); ok {
+				year = yVal
+			} else if yValFloat, ok := analysis.Data["year"].(float64); ok {
+				year = int(yValFloat)
+			}
+
+			format := "pdf"
+			if fVal, ok := analysis.Data["format"].(string); ok {
+				format = fVal
+			}
+
+			monthNamesIndo := []string{
+				"", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+				"Juli", "Agustus", "September", "Oktober", "November", "Desember",
+			}
+			monthName := "Bulan"
+			if month >= 1 && month <= 12 {
+				monthName = monthNamesIndo[month]
+			}
+
+			typeLabel := "Pengeluaran"
+			if tipe == "income" {
+				typeLabel = "Pemasukan"
+			} else if tipe == "all" {
+				typeLabel = "Transaksi"
+			}
+
+			formatLabel := strings.ToUpper(format)
+			fileExt := "." + format
+			if format == "xls" {
+				fileExt = ".xlsx"
+				formatLabel = "Excel (XLSX)"
+			} else if format == "word" {
+				fileExt = ".doc"
+				formatLabel = "Word (DOC)"
+			}
+
+			salaryDay := GetSalaryDay("user_1")
+			start, end := getMonthCycleBounds(year, month, salaryDay)
+			startStr := start.Format("2006-01-02")
+			endStr := end.Format("2006-01-02")
+
+			downloadURL := fmt.Sprintf("/api/download/%s?tipe=%s&start_date=%s&end_date=%s", format, tipe, startStr, endStr)
+			fileName := fmt.Sprintf("laporan_%s_%s_%s%s", tipe, strings.ReplaceAll(startStr, "-", ""), strings.ReplaceAll(endStr, "-", ""), fileExt)
+
+			iconColor := "#f43f5e"
+			iconText := "PDF"
+			if format == "xls" {
+				iconColor = "#10b981"
+				iconText = "XLSX"
+			} else if format == "word" {
+				iconColor = "#3b82f6"
+				iconText = "DOC"
+			}
+
+			replyText = fmt.Sprintf(`Silakan unduh rincian **%s** Anda untuk **%s %d** (%s s/d %s):<br><a href="%s" download class="block mt-2 no-underline"><div class="flex items-center gap-3 p-2.5 bg-[#111b21] hover:bg-[#202c33] rounded border border-white/10 transition cursor-pointer text-[#e9edef]"><div class="w-9 h-9 rounded flex justify-center items-center font-bold text-white text-[10px] shrink-0" style="background-color: %s;">%s</div><div class="flex-grow min-w-0 leading-tight"><div class="font-semibold text-[11px] truncate">%s</div><div class="text-[9px] text-[#8696a0] mt-0.5">Unduh dokumen %s</div></div><div class="text-[#00a884] shrink-0"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg></div></div></a>`,
+				typeLabel, monthName, year, formatDateIndo(start), formatDateIndo(end), downloadURL, iconColor, iconText, fileName, formatLabel)
+
+		case "DOWNLOAD_TRANSACTIONS_RANGE":
+			tipe := "expense"
+			if tVal, ok := analysis.Data["tipe"].(string); ok {
+				tipe = tVal
+			}
+
+			startStr := analysis.Data["start_date"].(string)
+			endStr := analysis.Data["end_date"].(string)
+
+			format := "pdf"
+			if fVal, ok := analysis.Data["format"].(string); ok {
+				format = fVal
+			}
+
+			typeLabel := "Pengeluaran"
+			if tipe == "income" {
+				typeLabel = "Pemasukan"
+			} else if tipe == "all" {
+				typeLabel = "Transaksi"
+			}
+
+			formatLabel := strings.ToUpper(format)
+			fileExt := "." + format
+			if format == "xls" {
+				fileExt = ".xlsx"
+				formatLabel = "Excel (XLSX)"
+			} else if format == "word" {
+				fileExt = ".doc"
+				formatLabel = "Word (DOC)"
+			}
+
+			downloadURL := fmt.Sprintf("/api/download/%s?tipe=%s&start_date=%s&end_date=%s", format, tipe, startStr, endStr)
+			fileName := fmt.Sprintf("laporan_%s_%s_%s%s", tipe, strings.ReplaceAll(startStr, "-", ""), strings.ReplaceAll(endStr, "-", ""), fileExt)
+
+			iconColor := "#f43f5e"
+			iconText := "PDF"
+			if format == "xls" {
+				iconColor = "#10b981"
+				iconText = "XLSX"
+			} else if format == "word" {
+				iconColor = "#3b82f6"
+				iconText = "DOC"
+			}
+
+			periodLabel := fmt.Sprintf("%s s/d %s", formatStrDateIndo(startStr), formatStrDateIndo(endStr))
+
+			replyText = fmt.Sprintf(`Silakan unduh rincian **%s** Anda untuk periode **%s**:<br><a href="%s" download class="block mt-2 no-underline"><div class="flex items-center gap-3 p-2.5 bg-[#111b21] hover:bg-[#202c33] rounded border border-white/10 transition cursor-pointer text-[#e9edef]"><div class="w-9 h-9 rounded flex justify-center items-center font-bold text-white text-[10px] shrink-0" style="background-color: %s;">%s</div><div class="flex-grow min-w-0 leading-tight"><div class="font-semibold text-[11px] truncate">%s</div><div class="text-[9px] text-[#8696a0] mt-0.5">Unduh dokumen %s</div></div><div class="text-[#00a884] shrink-0"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg></div></div></a>`,
+				typeLabel, periodLabel, downloadURL, iconColor, iconText, fileName, formatLabel)
+
+		case "LIST_TRANSACTIONS_BY_MONTH":
+			tipe := "expense"
+			if tVal, ok := analysis.Data["tipe"].(string); ok {
+				tipe = tVal
+			}
+
+			month := int(time.Now().Month())
+			if mVal, ok := analysis.Data["month"].(int); ok {
+				month = mVal
+			} else if mValFloat, ok := analysis.Data["month"].(float64); ok {
+				month = int(mValFloat)
+			}
+
+			year := time.Now().Year()
+			if yVal, ok := analysis.Data["year"].(int); ok {
+				year = yVal
+			} else if yValFloat, ok := analysis.Data["year"].(float64); ok {
+				year = int(yValFloat)
+			}
+
+			catLabels := map[string]string{}
+			catRows, errCat := DB.Query("SELECT id, label FROM categories")
+			if errCat == nil {
+				defer catRows.Close()
+				for catRows.Next() {
+					var cid, clabel string
+					if errScan := catRows.Scan(&cid, &clabel); errScan == nil {
+						catLabels[cid] = clabel
+					}
+				}
+			}
+
+			monthNamesIndo := []string{
+				"", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+				"Juli", "Agustus", "September", "Oktober", "November", "Desember",
+			}
+			monthName := "Bulan"
+			if month >= 1 && month <= 12 {
+				monthName = monthNamesIndo[month]
+			}
+
+			salaryDay := GetSalaryDay("user_1")
+			start, end := getMonthCycleBounds(year, month, salaryDay)
+			startStr := start.Format("2006-01-02")
+			endStr := end.Format("2006-01-02")
+
+			var rows *sql.Rows
+			var err error
+			if tipe == "all" {
+				rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", startStr, endStr)
+			} else {
+				rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tipe = ? AND tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", tipe, startStr, endStr)
+			}
+
+			if err != nil {
+				log.Printf("DB Error querying transactions by month: %v", err)
+				replyText = "Gagal memuat rincian transaksi dari database. 🥺"
+			} else {
+				defer rows.Close()
+				var lines []string
+				var totalExpense, totalIncome float64
+				for rows.Next() {
+					var tanggal, deskripsi, kategori, rowTipe, status string
+					var nominal float64
+					if errScan := rows.Scan(&tanggal, &deskripsi, &kategori, &rowTipe, &nominal, &status); errScan == nil {
+						dateStr := tanggal
+						if len(tanggal) >= 10 {
+							dateStr = tanggal[:10]
+						}
+						tParts := strings.Split(dateStr, "-")
+						if len(tParts) == 3 {
+							dateStr = tParts[2] + "/" + tParts[1]
+						}
+
+						catLabel, exists := catLabels[kategori]
+						if !exists {
+							catLabel = kategori
+							if len(catLabel) > 0 {
+								catLabel = strings.ToUpper(catLabel[0:1]) + catLabel[1:]
+							}
+						}
+
+						statusSuffix := ""
+						if status == "planned" {
+							statusSuffix = " *(Planned)*"
+						}
+
+						sign := ""
+						if tipe == "all" {
+							if rowTipe == "income" {
+								sign = "[+] "
+							} else {
+								sign = "[-] "
+							}
+						}
+
+						line := fmt.Sprintf("• [%s] %s%s (%s): **%s**%s", dateStr, sign, deskripsi, catLabel, formatRupiah(nominal), statusSuffix)
+						lines = append(lines, line)
+
+						if rowTipe == "income" {
+							totalIncome += nominal
+						} else {
+							totalExpense += nominal
+						}
+					}
+				}
+
+				periodLabel := fmt.Sprintf("%s %d (%s s/d %s)", monthName, year, formatDateIndo(start), formatDateIndo(end))
+
+				if len(lines) == 0 {
+					typeLabel := "transaksi"
+					if tipe == "expense" {
+						typeLabel = "pengeluaran"
+					} else if tipe == "income" {
+						typeLabel = "pemasukan"
+					}
+					replyText = fmt.Sprintf("Tidak ada %s yang tercatat untuk periode **%s**. 🤷‍♂️", typeLabel, periodLabel)
+				} else {
+					var totalText string
+					if tipe == "expense" {
+						totalText = fmt.Sprintf("<br>**Total Pengeluaran**: %s", formatRupiah(totalExpense))
+					} else if tipe == "income" {
+						totalText = fmt.Sprintf("<br>**Total Pemasukan**: %s", formatRupiah(totalIncome))
+					} else {
+						totalText = fmt.Sprintf("<br>**Total Pemasukan**: %s<br>**Total Pengeluaran**: %s<br>**Selisih**: %s",
+							formatRupiah(totalIncome), formatRupiah(totalExpense), formatRupiah(totalIncome-totalExpense))
+					}
+
+					header := "🧾 **Daftar Rincian Pengeluaran**"
+					if tipe == "income" {
+						header = "🧾 **Daftar Rincian Pemasukan**"
+					} else if tipe == "all" {
+						header = "🧾 **Daftar Rincian Transaksi**"
+					}
+
+					replyText = fmt.Sprintf("%s (%s):<br><br>%s<br>%s", header, periodLabel, strings.Join(lines, "<br>"), totalText)
+				}
+			}
+
+		case "LIST_TRANSACTIONS_RANGE":
+			tipe := "expense"
+			if tVal, ok := analysis.Data["tipe"].(string); ok {
+				tipe = tVal
+			}
+
+			startStr := analysis.Data["start_date"].(string)
+			endStr := analysis.Data["end_date"].(string)
+
+			tStart, _ := time.Parse("2006-01-02", startStr)
+			tEnd, _ := time.Parse("2006-01-02", endStr)
+
+			catLabels := map[string]string{}
+			catRows, errCat := DB.Query("SELECT id, label FROM categories")
+			if errCat == nil {
+				defer catRows.Close()
+				for catRows.Next() {
+					var cid, clabel string
+					if errScan := catRows.Scan(&cid, &clabel); errScan == nil {
+						catLabels[cid] = clabel
+					}
+				}
+			}
+
+			var rows *sql.Rows
+			var err error
+			if tipe == "all" {
+				rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", startStr, endStr)
+			} else {
+				rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tipe = ? AND tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", tipe, startStr, endStr)
+			}
+
+			if err != nil {
+				log.Printf("DB Error querying transactions by range: %v", err)
+				replyText = "Gagal memuat rincian transaksi dari database. 🥺"
+			} else {
+				defer rows.Close()
+				var lines []string
+				var totalExpense, totalIncome float64
+				for rows.Next() {
+					var tanggal, deskripsi, kategori, rowTipe, status string
+					var nominal float64
+					if errScan := rows.Scan(&tanggal, &deskripsi, &kategori, &rowTipe, &nominal, &status); errScan == nil {
+						dateStr := tanggal
+						if len(tanggal) >= 10 {
+							dateStr = tanggal[:10]
+						}
+						tParts := strings.Split(dateStr, "-")
+						if len(tParts) == 3 {
+							dateStr = tParts[2] + "/" + tParts[1]
+						}
+
+						catLabel, exists := catLabels[kategori]
+						if !exists {
+							catLabel = kategori
+							if len(catLabel) > 0 {
+								catLabel = strings.ToUpper(catLabel[0:1]) + catLabel[1:]
+							}
+						}
+
+						statusSuffix := ""
+						if status == "planned" {
+							statusSuffix = " *(Planned)*"
+						}
+
+						sign := ""
+						if tipe == "all" {
+							if rowTipe == "income" {
+								sign = "[+] "
+							} else {
+								sign = "[-] "
+							}
+						}
+
+						line := fmt.Sprintf("• [%s] %s%s (%s): **%s**%s", dateStr, sign, deskripsi, catLabel, formatRupiah(nominal), statusSuffix)
+						lines = append(lines, line)
+
+						if rowTipe == "income" {
+							totalIncome += nominal
+						} else {
+							totalExpense += nominal
+						}
+					}
+				}
+
+				periodLabel := fmt.Sprintf("%s s/d %s", formatDateIndo(tStart), formatDateIndo(tEnd))
+
+				if len(lines) == 0 {
+					typeLabel := "transaksi"
+					if tipe == "expense" {
+						typeLabel = "pengeluaran"
+					} else if tipe == "income" {
+						typeLabel = "pemasukan"
+					}
+					replyText = fmt.Sprintf("Tidak ada %s yang tercatat untuk periode **%s**. 🤷‍♂️", typeLabel, periodLabel)
+				} else {
+					var totalText string
+					if tipe == "expense" {
+						totalText = fmt.Sprintf("<br>**Total Pengeluaran**: %s", formatRupiah(totalExpense))
+					} else if tipe == "income" {
+						totalText = fmt.Sprintf("<br>**Total Pemasukan**: %s", formatRupiah(totalIncome))
+					} else {
+						totalText = fmt.Sprintf("<br>**Total Pemasukan**: %s<br>**Total Pengeluaran**: %s<br>**Selisih**: %s",
+							formatRupiah(totalIncome), formatRupiah(totalExpense), formatRupiah(totalIncome-totalExpense))
+					}
+
+					header := "🧾 **Daftar Rincian Pengeluaran**"
+					if tipe == "income" {
+						header = "🧾 **Daftar Rincian Pemasukan**"
+					} else if tipe == "all" {
+						header = "🧾 **Daftar Rincian Transaksi**"
+					}
+
+					replyText = fmt.Sprintf("%s (%s):<br><br>%s<br>%s", header, periodLabel, strings.Join(lines, "<br>"), totalText)
+				}
+			}
+
+		default:
+			replyText = "Maaf, bisa ulangi dengan format yang lebih jelas? 😊"
+		}
 	}
-}
 
 	// 3. Save Bot message to history
 	_, err = DB.Exec("INSERT INTO chat_history (sender, message) VALUES (?, ?)", "bot", replyText)
@@ -2230,10 +2229,10 @@ func handleQueryAnswerGo(queryType string) string {
 		_ = DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM transactions WHERE tipe = 'income' AND status = 'paid'").Scan(&paidIncome)
 		_ = DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM transactions WHERE tipe = 'expense' AND status = 'paid'").Scan(&paidExpense)
 		_ = DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM transactions WHERE tipe = 'expense' AND status = 'planned'").Scan(&plannedExpense)
-		
+
 		saldo := paidIncome - paidExpense
 		sisaAman := saldo - plannedExpense
-		
+
 		return fmt.Sprintf("Saldo: **%s**<br>Tagihan: **%s**<br>Sisa aman: **%s**",
 			formatRupiah(saldo), formatRupiah(plannedExpense), formatRupiah(sisaAman))
 
@@ -2409,7 +2408,7 @@ func CreatePlannedKeyword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lastInsertId, _ := res.LastInsertId()
-	
+
 	newKw := PlannedKeyword{
 		ID:        int(lastInsertId),
 		Keyword:   kwClean,
@@ -2787,22 +2786,43 @@ func sendWhatsAppMessage(toPhone, messageText string) error {
 	sendURL := os.Getenv("WHATSAPP_SEND_URL")
 	if sendURL == "" {
 		// Default to api.co.id conversation send endpoint
-		sendURL = fmt.Sprintf("https://chat.api.co.id/api/v1/public/conversations/%s/messages", toPhone)
+		sendURL = "https://chat.api.co.id/api/v1/public/messages/send"
 	} else {
 		// Replace placeholder variables if configured in env
 		sendURL = strings.ReplaceAll(sendURL, ":customerId", toPhone)
 		sendURL = strings.ReplaceAll(sendURL, "{phone}", toPhone)
 	}
 
-	// Populate multiple common JSON structures to maximize compatibility with the gateway
-	bodyMap := map[string]interface{}{
-		"text":    messageText,
-		"message": messageText,
-		"body":    messageText,
-		"to":      toPhone,
+	// Determine the payload format based on the URL
+	var requestBody []byte
+	var err error
+
+	phoneId := os.Getenv("WHATSAPP_PHONE_NUMBER_ID")
+	if phoneId == "" {
+		phoneId = "cmq6tnmze02ezphspujxbfivl"
 	}
 
-	requestBody, err := json.Marshal(bodyMap)
+	if strings.Contains(sendURL, "/api/v1/public/messages/send") {
+		// New api.co.id format
+		bodyMap := map[string]interface{}{
+			"phone_number":             toPhone,
+			"channel":                  "whatsapp",
+			"message_type":             "text",
+			"content":                  messageText,
+			"whatsapp_phone_number_id": phoneId,
+		}
+		requestBody, err = json.Marshal(bodyMap)
+	} else {
+		// Legacy / alternative gateway format
+		bodyMap := map[string]interface{}{
+			"text":    messageText,
+			"message": messageText,
+			"body":    messageText,
+			"to":      toPhone,
+		}
+		requestBody, err = json.Marshal(bodyMap)
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to marshal request body: %w", err)
 	}
