@@ -2782,6 +2782,7 @@ func sendWhatsAppMessage(toPhone, messageText string) error {
 	if apiKey == "" {
 		apiKey = "apicoid_live_BUrDwTcJrwDyxxPM931fRdiIHTCPzQMJwDf0K2v4MbQ" // default key from user's screen
 	}
+	fmt.Println("APikey", apiKey)
 
 	sendURL := os.Getenv("WHATSAPP_SEND_URL")
 	if sendURL == "" {
