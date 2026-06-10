@@ -3,6 +3,29 @@ import { ref, onMounted, nextTick, computed } from 'vue'
 import Chart from 'chart.js/auto'
 
 // Base State
+const activeUserID = ref(localStorage.getItem('active_user_id') || 'user_1')
+
+const getUrlWithUser = (basePath) => {
+  const separator = basePath.includes('?') ? '&' : '?'
+  return `${basePath}${separator}user_id=${encodeURIComponent(activeUserID.value)}`
+}
+
+const handleUserChange = () => {
+  localStorage.setItem('active_user_id', activeUserID.value)
+  fetchData()
+}
+
+const promptCustomUser = () => {
+  const customNum = prompt('Masukkan nomor WhatsApp / ID Pengguna baru (hanya angka/huruf, contoh: 6285711223344):')
+  if (customNum) {
+    const cleanNum = customNum.trim().replace(/[^a-zA-Z0-9_]/g, '')
+    if (cleanNum) {
+      activeUserID.value = cleanNum
+      handleUserChange()
+    }
+  }
+}
+
 const transactions = ref([])
 const chatHistory = ref([])
 const financials = ref({
@@ -61,13 +84,13 @@ const fetchData = async () => {
         url += `?type=${activeFilter.value}`
       }
     }
-    const txRes = await fetch(url)
+    const txRes = await fetch(getUrlWithUser(url))
     if (txRes.ok) {
       transactions.value = (await txRes.json()) || []
     }
 
     // 2. Fetch stats
-    const finRes = await fetch('/api/financials')
+    const finRes = await fetch(getUrlWithUser('/api/financials'))
     if (finRes.ok) {
       const data = await finRes.json()
       financials.value = {
@@ -83,7 +106,7 @@ const fetchData = async () => {
     }
 
     // 3. Fetch chat history
-    const chatRes = await fetch('/api/chat-history')
+    const chatRes = await fetch(getUrlWithUser('/api/chat-history'))
     if (chatRes.ok) {
       chatHistory.value = (await chatRes.json()) || []
       scrollToBottom()
@@ -212,10 +235,10 @@ const sendMessage = async (overrideText = null) => {
   isTyping.value = true
 
   try {
-    const res = await fetch('/api/chat', {
+    const res = await fetch(getUrlWithUser('/api/chat'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text })
+      body: JSON.stringify({ message: text, user_id: activeUserID.value })
     })
 
     if (res.ok) {
@@ -297,7 +320,7 @@ const formatVoiceTime = computed(() => {
 // Quick update planned to paid
 const markAsPaid = async (id, desc) => {
   try {
-    const res = await fetch(`/api/transactions/${id}/status`, {
+    const res = await fetch(getUrlWithUser(`/api/transactions/${id}/status`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'paid' })
@@ -318,7 +341,7 @@ const markAsPaid = async (id, desc) => {
 const deleteTx = async (id, desc) => {
   if (!confirm(`Hapus transaksi "${desc}"?`)) return
   try {
-    const res = await fetch(`/api/transactions/${id}`, {
+    const res = await fetch(getUrlWithUser(`/api/transactions/${id}`), {
       method: 'DELETE'
     })
     if (res.ok) {
@@ -336,7 +359,7 @@ const deleteTx = async (id, desc) => {
 const resetDB = async () => {
   if (!confirm('Apakah Anda yakin ingin me-reset database ke data demo bawaan? Semua data saat ini akan terhapus.')) return
   try {
-    const res = await fetch('/api/transactions/reset', {
+    const res = await fetch(getUrlWithUser('/api/transactions/reset'), {
       method: 'POST'
     })
     if (res.ok) {
@@ -353,7 +376,7 @@ const resetDB = async () => {
 // Fetch Daily / Monthly plaintext report
 const openReport = async (type) => {
   try {
-    const res = await fetch(`/api/reports/${type}`)
+    const res = await fetch(getUrlWithUser(`/api/reports/${type}`))
     if (res.ok) {
       const data = await res.json()
       reportTitle.value = data.title
@@ -391,7 +414,7 @@ const submitManualTransaction = async () => {
   }
 
   try {
-    const res = await fetch('/api/transactions', {
+    const res = await fetch(getUrlWithUser('/api/transactions'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -430,7 +453,9 @@ const selectFilter = (filter) => {
 // Markdown formatter helper
 const renderMessageText = (text) => {
   if (!text) return ''
-  return String(text).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+  let html = String(text).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+  html = html.replace(/\/api\/download\/(pdf|xls|word)\?(tipe=[a-z]+)/g, `/api/download/$1?$2&user_id=${encodeURIComponent(activeUserID.value)}`)
+  return html
 }
 
 // Smart Alerts computed properties
@@ -501,7 +526,7 @@ const recurringTemplates = ref([])
 
 const fetchRecurringTemplates = async () => {
   try {
-    const res = await fetch('/api/recurring-templates')
+    const res = await fetch(getUrlWithUser('/api/recurring-templates'))
     if (res.ok) {
       recurringTemplates.value = (await res.json()) || []
     }
@@ -513,7 +538,7 @@ const fetchRecurringTemplates = async () => {
 const deleteRecurringTemplate = async (id, desc) => {
   if (!confirm(`Hapus template "${desc}"?`)) return
   try {
-    const res = await fetch(`/api/recurring-templates/${id}`, {
+    const res = await fetch(getUrlWithUser(`/api/recurring-templates/${id}`), {
       method: 'DELETE'
     })
     if (res.ok) {
@@ -530,7 +555,7 @@ const deleteRecurringTemplate = async (id, desc) => {
 
 const fetchKeywords = async () => {
   try {
-    const res = await fetch('/api/planned-keywords')
+    const res = await fetch(getUrlWithUser('/api/planned-keywords'))
     if (res.ok) {
       plannedKeywords.value = await res.json()
     }
@@ -541,7 +566,7 @@ const fetchKeywords = async () => {
 
 const fetchCategories = async () => {
   try {
-    const res = await fetch('/api/categories')
+    const res = await fetch(getUrlWithUser('/api/categories'))
     if (res.ok) {
       const list = await res.json()
       const grouped = {
@@ -567,7 +592,7 @@ const addKeyword = async () => {
   if (!kw) return
 
   try {
-    const res = await fetch('/api/planned-keywords', {
+    const res = await fetch(getUrlWithUser('/api/planned-keywords'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ keyword: kw })
@@ -590,7 +615,7 @@ const addKeyword = async () => {
 
 const deleteKeyword = async (id) => {
   try {
-    const res = await fetch(`/api/planned-keywords/${id}`, {
+    const res = await fetch(getUrlWithUser(`/api/planned-keywords/${id}`), {
       method: 'DELETE'
     })
     if (res.ok) {
@@ -735,6 +760,21 @@ onMounted(() => {
             <h1 class="text-xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">DompetKu</h1>
             <p class="text-xs text-text-secondary">Dashboard Keuangan Keluarga WhatsApp Real-time</p>
           </div>
+        </div>
+
+        <!-- WhatsApp Number Multi-Channel Selector -->
+        <div class="flex items-center gap-2 bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 my-3 sm:my-0">
+          <span class="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">Nomor WhatsApp:</span>
+          <select v-model="activeUserID" @change="handleUserChange" class="bg-transparent text-white font-semibold text-xs border-none outline-none cursor-pointer focus:ring-0">
+            <option value="user_1" class="bg-[#090d16] text-white">Default (user_1)</option>
+            <option value="628123456789" class="bg-[#090d16] text-white">Bapak (+62 812-3456-789)</option>
+            <option value="628987654321" class="bg-[#090d16] text-white">Ibu (+62 898-7654-321)</option>
+            <option value="628112233445" class="bg-[#090d16] text-white">Anak (+62 811-2233-445)</option>
+            <option v-if="activeUserID !== 'user_1' && activeUserID !== '628123456789' && activeUserID !== '628987654321' && activeUserID !== '628112233445'" :value="activeUserID" class="bg-[#090d16] text-white">Custom ({{ activeUserID }})</option>
+          </select>
+          <button @click="promptCustomUser" title="Input custom nomor" class="p-1 hover:bg-white/10 rounded text-text-secondary hover:text-white transition">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          </button>
         </div>
         <div class="flex gap-2.5 mt-3 sm:mt-0">
           <button @click="resetDB" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-bg-surface-elevated text-text-primary border border-border-custom rounded hover:bg-white/10 text-xs font-semibold transition">

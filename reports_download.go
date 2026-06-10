@@ -14,7 +14,7 @@ import (
 )
 
 // Helper to parse query parameters and return range start and end dates in YYYY-MM-DD format
-func parseDownloadParamsRange(r *http.Request) (string, string, string) {
+func parseDownloadParamsRange(r *http.Request) (string, string, string, string) {
 	tipe := r.URL.Query().Get("tipe")
 	if tipe == "" {
 		tipe = "expense"
@@ -23,8 +23,10 @@ func parseDownloadParamsRange(r *http.Request) (string, string, string) {
 	startDate := r.URL.Query().Get("start_date")
 	endDate := r.URL.Query().Get("end_date")
 
+	userID := getUserID(r)
+
 	if startDate != "" && endDate != "" {
-		return tipe, startDate, endDate
+		return tipe, startDate, endDate, userID
 	}
 
 	monthStr := r.URL.Query().Get("month")
@@ -39,9 +41,9 @@ func parseDownloadParamsRange(r *http.Request) (string, string, string) {
 		year = y
 	}
 
-	salaryDay := GetSalaryDay("user_1")
+	salaryDay := GetSalaryDay(userID)
 	start, end := getMonthCycleBounds(year, month, salaryDay)
-	return tipe, start.Format("2006-01-02"), end.Format("2006-01-02")
+	return tipe, start.Format("2006-01-02"), end.Format("2006-01-02"), userID
 }
 
 type ReportTx struct {
@@ -54,13 +56,13 @@ type ReportTx struct {
 }
 
 // Helper to fetch report transactions
-func getReportTransactions(tipe string, startDate string, endDate string) ([]ReportTx, error) {
+func getReportTransactions(tipe string, startDate string, endDate string, userID string) ([]ReportTx, error) {
 	var rows *sql.Rows
 	var err error
 	if tipe == "all" {
-		rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", startDate, endDate)
+		rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tanggal >= ? AND tanggal <= ? AND user_id = ? ORDER BY tanggal ASC, created_at ASC", startDate, endDate, userID)
 	} else {
-		rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tipe = ? AND tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", tipe, startDate, endDate)
+		rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tipe = ? AND tanggal >= ? AND tanggal <= ? AND user_id = ? ORDER BY tanggal ASC, created_at ASC", tipe, startDate, endDate, userID)
 	}
 	if err != nil {
 		return nil, err
@@ -111,8 +113,8 @@ func HandleDownloadPDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tipe, startDate, endDate := parseDownloadParamsRange(r)
-	list, err := getReportTransactions(tipe, startDate, endDate)
+	tipe, startDate, endDate, userID := parseDownloadParamsRange(r)
+	list, err := getReportTransactions(tipe, startDate, endDate, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -192,8 +194,8 @@ func HandleDownloadXLS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tipe, startDate, endDate := parseDownloadParamsRange(r)
-	list, err := getReportTransactions(tipe, startDate, endDate)
+	tipe, startDate, endDate, userID := parseDownloadParamsRange(r)
+	list, err := getReportTransactions(tipe, startDate, endDate, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -263,8 +265,8 @@ func HandleDownloadWord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tipe, startDate, endDate := parseDownloadParamsRange(r)
-	list, err := getReportTransactions(tipe, startDate, endDate)
+	tipe, startDate, endDate, userID := parseDownloadParamsRange(r)
+	list, err := getReportTransactions(tipe, startDate, endDate, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

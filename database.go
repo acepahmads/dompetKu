@@ -113,6 +113,7 @@ func migrateTables() {
 	createChatTable := `
 	CREATE TABLE IF NOT EXISTS chat_history (
 		id INT AUTO_INCREMENT PRIMARY KEY,
+		user_id VARCHAR(50) NOT NULL DEFAULT 'user_1',
 		sender VARCHAR(20) NOT NULL,
 		message TEXT NOT NULL,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -121,6 +122,16 @@ func migrateTables() {
 	_, err = DB.Exec(createChatTable)
 	if err != nil {
 		log.Fatalf("Failed to create chat_history table: %v", err)
+	}
+
+	// Ensure user_id column exists (migration for existing database)
+	var hasUserId bool
+	err = DB.QueryRow("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'chat_history' AND column_name = 'user_id'").Scan(&hasUserId)
+	if err == nil && !hasUserId {
+		_, errCol := DB.Exec("ALTER TABLE chat_history ADD COLUMN user_id VARCHAR(50) NOT NULL DEFAULT 'user_1'")
+		if errCol != nil {
+			log.Printf("Warning: Failed to add user_id column to chat_history: %v", errCol)
+		}
 	}
 
 	// Planned keywords table
@@ -648,4 +659,98 @@ func getEnv(key, fallback string) string {
 
 func stringPtr(s string) *string {
 	return &s
+}
+
+func seedMockDataForUser(userID string) {
+	// 1. Delete existing transactions for this user (if any)
+	_, _ = DB.Exec("DELETE FROM transactions WHERE user_id = ?", userID)
+	_, _ = DB.Exec("DELETE FROM chat_history WHERE user_id = ?", userID)
+	
+	// 2. Seed default demo data for this user
+	demoTxs := []Transaction{
+		{
+			ID:        generateID(),
+			UserID:    userID,
+			Tanggal:   "2026-06-01",
+			Deskripsi: "Gaji Bulanan Utama",
+			Kategori:  "gaji",
+			Tipe:      "income",
+			Nominal:   5000000,
+			Status:    "paid",
+			CreatedAt: time.Now().Add(-7 * 24 * time.Hour),
+		},
+		{
+			ID:        generateID(),
+			UserID:    userID,
+			Tanggal:   "2026-06-03",
+			Deskripsi: "Beli Beras & Telur Bulanan",
+			Kategori:  "makan",
+			Tipe:      "expense",
+			Nominal:   120000,
+			Status:    "paid",
+			CreatedAt: time.Now().Add(-5 * 24 * time.Hour),
+		},
+		{
+			ID:        generateID(),
+			UserID:    userID,
+			Tanggal:   "2026-06-05",
+			Deskripsi: "Tagihan Listrik PLN",
+			Kategori:  "listrik",
+			Tipe:      "expense",
+			Nominal:   300000,
+			Status:    "planned",
+			DueDate:   stringPtr("2026-06-20"),
+			CreatedAt: time.Now().Add(-3 * 24 * time.Hour),
+		},
+		{
+			ID:        generateID(),
+			UserID:    userID,
+			Tanggal:   "2026-06-07",
+			Deskripsi: "Langganan Wifi Internet",
+			Kategori:  "internet",
+			Tipe:      "expense",
+			Nominal:   250000,
+			Status:    "planned",
+			DueDate:   stringPtr("2026-06-25"),
+			CreatedAt: time.Now().Add(-1 * 24 * time.Hour),
+		},
+		{
+			ID:        generateID(),
+			UserID:    userID,
+			Tanggal:   "2026-06-08",
+			Deskripsi: "Bensin Motor Mingguan",
+			Kategori:  "transport",
+			Tipe:      "expense",
+			Nominal:   50000,
+			Status:    "paid",
+			CreatedAt: time.Now(),
+		},
+	}
+
+	stmt, err := DB.Prepare("INSERT INTO transactions (id, user_id, tanggal, deskripsi, kategori, tipe, nominal, status, due_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		log.Printf("[ERROR] Failed to prepare user seed query: %v", err)
+		return
+	}
+	defer stmt.Close()
+
+	for _, tx := range demoTxs {
+		var dueDateVal interface{}
+		if tx.DueDate != nil {
+			dueDateVal = *tx.DueDate
+		} else {
+			dueDateVal = nil
+		}
+		
+		_, err = stmt.Exec(tx.ID, tx.UserID, tx.Tanggal, tx.Deskripsi, tx.Kategori, tx.Tipe, tx.Nominal, tx.Status, dueDateVal, tx.CreatedAt)
+		if err != nil {
+			log.Printf("[ERROR] Failed to seed user transaction: %v", err)
+		}
+	}
+
+	// 3. Seed welcome message for this user into chat_history
+	_, err = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", userID, "bot", "Halo! Aku **DompetKu**, asisten keuangan keluargamu. 🧑‍💼💸\n\nAku siap bantu kamu catat pengeluaran, pemasukan, tagihan, dan pantau budget dengan mudah.\n\nCobalah mengetik atau klik salah satu pintasan di bawah untuk mulai!")
+	if err != nil {
+		log.Printf("[ERROR] Failed to seed welcome chat for user: %v", err)
+	}
 }
