@@ -2627,7 +2627,7 @@ func WhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 
 		if msgText != "" {
 			trimmedMsg := strings.TrimSpace(msgText)
-			hasPrefix := strings.HasPrefix(trimmedMsg, "^_^")
+			hasPrefix := strings.HasPrefix(trimmedMsg, "^")
 
 			waSessionsMu.Lock()
 			lastActive, hasSession := waSessions[senderNum]
@@ -2649,14 +2649,14 @@ func WhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 			// Clean message text by stripping the prefix
 			processedMsg := trimmedMsg
 			if hasPrefix {
-				processedMsg = strings.TrimSpace(strings.TrimPrefix(trimmedMsg, "^_^"))
+				processedMsg = strings.TrimSpace(strings.TrimPrefix(trimmedMsg, "^"))
 			}
 
 			// Update session activity time
 			waSessions[senderNum] = now
 			waSessionsMu.Unlock()
 
-			// If user sent ONLY the prefix "^_^", send activation notification and return
+			// If user sent ONLY the prefix "^", send activation notification and return
 			if processedMsg == "" {
 				reply := "Sesi WhatsApp aktif selama 5 menit ke depan! Silakan masukkan transaksi Anda. 😊"
 				errSend := sendWhatsAppMessage(senderNum, reply)
