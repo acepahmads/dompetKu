@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Typing indicator animations */
+@keyframes typingDot {
+  0% { transform: translateY(0); opacity: 0.4; }
+  100% { transform: translateY(-4px); opacity: 1; }
+}
+
+.dot-animation-1 {
+  animation: typingDot 1.4s infinite alternate;
+}
+.dot-animation-2 {
+  animation: typingDot 1.4s infinite alternate 0.2s;
+}
+.dot-animation-3 {
+  animation: typingDot 1.4s infinite alternate 0.4s;
+}
