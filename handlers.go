@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -2572,6 +2573,11 @@ func DeleteRecurringTemplate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Template deleted successfully"})
 }
 
+var (
+	waSessionsMu sync.Mutex
+	waSessions   = make(map[string]time.Time)
+)
+
 // WhatsAppWebhook handles Meta's verification (GET) and incoming messages (POST) from WhatsApp APIs (like api.co.id)
 func WhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
@@ -2621,9 +2627,51 @@ func WhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[WHATSAPP] Received message from %s: %s", senderNum, msgText)
 
 		if msgText != "" {
+			trimmedMsg := strings.TrimSpace(msgText)
+			hasPrefix := strings.HasPrefix(trimmedMsg, "^_^")
+
+			waSessionsMu.Lock()
+			lastActive, hasSession := waSessions[senderNum]
+			now := time.Now()
+
+			sessionValid := false
+			if hasSession && now.Sub(lastActive) <= 5*time.Minute {
+				sessionValid = true
+			}
+
+			if !sessionValid && !hasPrefix {
+				waSessionsMu.Unlock()
+				log.Printf("[WHATSAPP] Message ignored: no active session and prefix missing for sender %s", senderNum)
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("EVENT_RECEIVED"))
+				return
+			}
+
+			// Clean message text by stripping the prefix
+			processedMsg := trimmedMsg
+			if hasPrefix {
+				processedMsg = strings.TrimSpace(strings.TrimPrefix(trimmedMsg, "^_^"))
+			}
+
+			// Update session activity time
+			waSessions[senderNum] = now
+			waSessionsMu.Unlock()
+
+			// If user sent ONLY the prefix "^_^", send activation notification and return
+			if processedMsg == "" {
+				reply := "Sesi WhatsApp aktif selama 5 menit ke depan! Silakan masukkan transaksi Anda. 😊"
+				errSend := sendWhatsAppMessage(senderNum, reply)
+				if errSend != nil {
+					log.Printf("[WHATSAPP] Error sending activation reply to %s: %v", senderNum, errSend)
+				}
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("EVENT_RECEIVED"))
+				return
+			}
+
 			// Mock call to ProcessChat using httptest to reuse entire NLP engine and state machine logic
 			wMock := httptest.NewRecorder()
-			chatBody, _ := json.Marshal(map[string]string{"message": msgText})
+			chatBody, _ := json.Marshal(map[string]string{"message": processedMsg})
 			rMock := httptest.NewRequest("POST", "/api/chat", bytes.NewReader(chatBody))
 			rMock.Header.Set("Content-Type", "application/json")
 
