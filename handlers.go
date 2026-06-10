@@ -2773,6 +2773,24 @@ func parseIncomingWebhook(body []byte) (string, string, error) {
 		}
 	}
 
+	// 3. Try to parse as api.co.id webhook event structure (nested in "data")
+	type ApiCoIdEvent struct {
+		EventType string `json:"event_type"`
+		Data      struct {
+			CustomerPhone string `json:"customer_phone"`
+			Content       string `json:"content"`
+			Direction     string `json:"direction"`
+		} `json:"data"`
+	}
+	var apiEvent ApiCoIdEvent
+	if err := json.Unmarshal(body, &apiEvent); err == nil && apiEvent.EventType == "message.received" {
+		if apiEvent.Data.CustomerPhone != "" && apiEvent.Data.Content != "" {
+			if apiEvent.Data.Direction == "inbound" || apiEvent.Data.Direction == "" {
+				return apiEvent.Data.CustomerPhone, apiEvent.Data.Content, nil
+			}
+		}
+	}
+
 	return "", "", fmt.Errorf("unable to parse webhook payload: unknown format")
 }
 
