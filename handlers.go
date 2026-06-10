@@ -570,12 +570,18 @@ func UpdateTransactionStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID := getUserID(r)
+
 	var deskripsi string
 	var nominal float64
 	var txUserID string
-	_ = DB.QueryRow("SELECT deskripsi, nominal, user_id FROM transactions WHERE id = ?", id).Scan(&deskripsi, &nominal, &txUserID)
+	errRow := DB.QueryRow("SELECT deskripsi, nominal, user_id FROM transactions WHERE id = ? AND user_id = ?", id, userID).Scan(&deskripsi, &nominal, &txUserID)
+	if errRow == sql.ErrNoRows {
+		http.Error(w, "Transaction not found or unauthorized", http.StatusNotFound)
+		return
+	}
 
-	_, err := DB.Exec("UPDATE transactions SET status = ? WHERE id = ?", body.Status, id)
+	_, err := DB.Exec("UPDATE transactions SET status = ? WHERE id = ? AND user_id = ?", body.Status, id, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -588,7 +594,7 @@ func UpdateTransactionStatus(w http.ResponseWriter, r *http.Request) {
 		}
 		notifMsg := fmt.Sprintf("📢 **Notifikasi Dashboard**: Status transaksi **%s** (%s) telah diperbarui menjadi **%s** melalui dashboard! 💳",
 			deskripsi, formatRupiah(nominal), statusLabel)
-		_, _ = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", txUserID, "bot", notifMsg)
+		_, _ = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", userID, "bot", notifMsg)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -604,12 +610,18 @@ func DeleteTransaction(w http.ResponseWriter, r *http.Request) {
 
 	id := strings.TrimPrefix(r.URL.Path, "/api/transactions/")
 
+	userID := getUserID(r)
+
 	var deskripsi string
 	var nominal float64
 	var txUserID string
-	_ = DB.QueryRow("SELECT deskripsi, nominal, user_id FROM transactions WHERE id = ?", id).Scan(&deskripsi, &nominal, &txUserID)
+	errRow := DB.QueryRow("SELECT deskripsi, nominal, user_id FROM transactions WHERE id = ? AND user_id = ?", id, userID).Scan(&deskripsi, &nominal, &txUserID)
+	if errRow == sql.ErrNoRows {
+		http.Error(w, "Transaction not found or unauthorized", http.StatusNotFound)
+		return
+	}
 
-	_, err := DB.Exec("DELETE FROM transactions WHERE id = ?", id)
+	_, err := DB.Exec("DELETE FROM transactions WHERE id = ? AND user_id = ?", id, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -618,7 +630,7 @@ func DeleteTransaction(w http.ResponseWriter, r *http.Request) {
 	if deskripsi != "" {
 		notifMsg := fmt.Sprintf("📢 **Notifikasi Dashboard**: Transaksi **%s** (%s) telah dihapus dari sistem melalui dashboard! 🗑️",
 			deskripsi, formatRupiah(nominal))
-		_, _ = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", txUserID, "bot", notifMsg)
+		_, _ = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", userID, "bot", notifMsg)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -931,14 +943,14 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 					SetUserState(userID, "")
 					replyText = "Penghapusan pengeluaran berhasil dibatalkan. Riwayat pengeluaran Anda tetap aman! 😌"
 				} else if cleanedMsg == "1" {
-					_, err := DB.Exec("DELETE FROM transactions")
+					_, err := DB.Exec("DELETE FROM transactions WHERE user_id = ?", userID)
 					if err != nil {
 						log.Printf("DB Error deleting all transactions: %v", err)
 						replyText = "Gagal menghapus data transaksi. 🥺"
 					} else {
 						SetUserState(userID, "")
 						replyText = "⚠️ **PEMBERITAHUAN**: Seluruh data pemasukan dan pengeluaran Anda berhasil dihapus dari sistem! 🗑️"
-						_, _ = DB.Exec("INSERT INTO chat_history (sender, message) VALUES (?, ?)", "bot", "📢 **Notifikasi Sistem**: Seluruh data transaksi telah dihapus oleh pengguna.")
+						_, _ = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", userID, "bot", "📢 **Notifikasi Sistem**: Seluruh data transaksi telah dihapus oleh pengguna.")
 					}
 				} else if cleanedMsg == "2" {
 					currentMonth := int(time.Now().Month())
@@ -948,7 +960,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 					startStr := start.Format("2006-01-02")
 					endStr := end.Format("2006-01-02")
 
-					_, err := DB.Exec("DELETE FROM transactions WHERE tipe = 'expense' AND tanggal >= ? AND tanggal <= ?", startStr, endStr)
+					_, err := DB.Exec("DELETE FROM transactions WHERE tipe = 'expense' AND tanggal >= ? AND tanggal <= ? AND user_id = ?", startStr, endStr, userID)
 					if err != nil {
 						log.Printf("DB Error deleting month expenses: %v", err)
 						replyText = "Gagal menghapus data pengeluaran bulan ini. 🥺"
@@ -956,7 +968,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 						SetUserState(userID, "")
 						periodLabel := fmt.Sprintf("%02d/%02d/%d s/d %02d/%02d/%d", start.Day(), start.Month(), start.Year(), end.Day(), end.Month(), end.Year())
 						replyText = fmt.Sprintf("Data pengeluaran untuk periode bulan ini (**%s**) berhasil dihapus! 🗑️", periodLabel)
-						_, _ = DB.Exec("INSERT INTO chat_history (sender, message) VALUES (?, ?)", "bot", fmt.Sprintf("📢 **Notifikasi Sistem**: Data pengeluaran untuk periode %s telah dihapus oleh pengguna.", periodLabel))
+						_, _ = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", userID, "bot", fmt.Sprintf("📢 **Notifikasi Sistem**: Data pengeluaran untuk periode %s telah dihapus oleh pengguna.", periodLabel))
 					}
 				} else if cleanedMsg == "3" {
 					SetUserState(userID, "CONFIRM_DELETE_EXPENSE_BY_NAME")
@@ -979,7 +991,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 					var id, deskripsi string
 					var nominal float64
 					likeKeyword := "%" + cleanedMsg + "%"
-					err := DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE (deskripsi LIKE ? OR kategori LIKE ?) AND tipe = 'expense' ORDER BY created_at DESC, id DESC LIMIT 1", likeKeyword, likeKeyword).Scan(&id, &deskripsi, &nominal)
+					err := DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE (deskripsi LIKE ? OR kategori LIKE ?) AND tipe = 'expense' AND user_id = ? ORDER BY created_at DESC, id DESC LIMIT 1", likeKeyword, likeKeyword, userID).Scan(&id, &deskripsi, &nominal)
 					if err == sql.ErrNoRows {
 						replyText = fmt.Sprintf("Tidak ditemukan pengeluaran yang cocok dengan kata kunci **\"%s\"**. 🤔<br>Silakan ketik nama/deskripsi pengeluaran lain, atau ketik **kembali**.", cleanedMsg)
 					} else if err != nil {
@@ -1015,7 +1027,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 						startStr := start.Format("2006-01-02")
 						endStr := end.Format("2006-01-02")
 
-						_, err := DB.Exec("DELETE FROM transactions WHERE tipe = 'expense' AND tanggal >= ? AND tanggal <= ?", startStr, endStr)
+						_, err := DB.Exec("DELETE FROM transactions WHERE tipe = 'expense' AND tanggal >= ? AND tanggal <= ? AND user_id = ?", startStr, endStr, userID)
 						if err != nil {
 							log.Printf("DB Error deleting custom month expenses: %v", err)
 							replyText = "Gagal menghapus data pengeluaran untuk periode tersebut. 🥺"
@@ -1025,7 +1037,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 							monthName := monthNamesIndo[month]
 							periodLabel := fmt.Sprintf("%02d/%02d/%d s/d %02d/%02d/%d", start.Day(), start.Month(), start.Year(), end.Day(), end.Month(), end.Year())
 							replyText = fmt.Sprintf("Data pengeluaran untuk periode **%s %d** (%s) berhasil dihapus! 🗑️", monthName, year, periodLabel)
-							_, _ = DB.Exec("INSERT INTO chat_history (sender, message) VALUES (?, ?)", "bot", fmt.Sprintf("📢 **Notifikasi Sistem**: Data pengeluaran untuk periode %s %d (%s) telah dihapus oleh pengguna.", monthName, year, periodLabel))
+							_, _ = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", userID, "bot", fmt.Sprintf("📢 **Notifikasi Sistem**: Data pengeluaran untuk periode %s %d (%s) telah dihapus oleh pengguna.", monthName, year, periodLabel))
 						}
 					}
 				}
@@ -1035,14 +1047,14 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 					SetUserState(userID, "")
 					replyText = "Penghapusan pemasukan berhasil dibatalkan. Riwayat pemasukan Anda tetap aman! 😌"
 				} else if cleanedMsg == "1" {
-					_, err := DB.Exec("DELETE FROM transactions")
+					_, err := DB.Exec("DELETE FROM transactions WHERE user_id = ?", userID)
 					if err != nil {
 						log.Printf("DB Error deleting all transactions: %v", err)
 						replyText = "Gagal menghapus data transaksi. 🥺"
 					} else {
 						SetUserState(userID, "")
 						replyText = "⚠️ **PEMBERITAHUAN**: Seluruh data pemasukan dan pengeluaran Anda berhasil dihapus dari sistem! 🗑️"
-						_, _ = DB.Exec("INSERT INTO chat_history (sender, message) VALUES (?, ?)", "bot", "📢 **Notifikasi Sistem**: Seluruh data transaksi telah dihapus oleh pengguna.")
+						_, _ = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", userID, "bot", "📢 **Notifikasi Sistem**: Seluruh data transaksi telah dihapus oleh pengguna.")
 					}
 				} else if cleanedMsg == "2" {
 					currentMonth := int(time.Now().Month())
@@ -1052,7 +1064,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 					startStr := start.Format("2006-01-02")
 					endStr := end.Format("2006-01-02")
 
-					_, err := DB.Exec("DELETE FROM transactions WHERE tipe = 'income' AND tanggal >= ? AND tanggal <= ?", startStr, endStr)
+					_, err := DB.Exec("DELETE FROM transactions WHERE tipe = 'income' AND tanggal >= ? AND tanggal <= ? AND user_id = ?", startStr, endStr, userID)
 					if err != nil {
 						log.Printf("DB Error deleting month incomes: %v", err)
 						replyText = "Gagal menghapus data pemasukan bulan ini. 🥺"
@@ -1060,7 +1072,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 						SetUserState(userID, "")
 						periodLabel := fmt.Sprintf("%02d/%02d/%d s/d %02d/%02d/%d", start.Day(), start.Month(), start.Year(), end.Day(), end.Month(), end.Year())
 						replyText = fmt.Sprintf("Data pemasukan untuk periode bulan ini (**%s**) berhasil dihapus! 🗑️", periodLabel)
-						_, _ = DB.Exec("INSERT INTO chat_history (sender, message) VALUES (?, ?)", "bot", fmt.Sprintf("📢 **Notifikasi Sistem**: Data pemasukan untuk periode %s telah dihapus oleh pengguna.", periodLabel))
+						_, _ = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", userID, "bot", fmt.Sprintf("📢 **Notifikasi Sistem**: Data pemasukan untuk periode %s telah dihapus oleh pengguna.", periodLabel))
 					}
 				} else if cleanedMsg == "3" {
 					SetUserState(userID, "CONFIRM_DELETE_INCOME_BY_NAME")
@@ -1083,7 +1095,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 					var id, deskripsi string
 					var nominal float64
 					likeKeyword := "%" + cleanedMsg + "%"
-					err := DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE (deskripsi LIKE ? OR kategori LIKE ?) AND tipe = 'income' ORDER BY created_at DESC, id DESC LIMIT 1", likeKeyword, likeKeyword).Scan(&id, &deskripsi, &nominal)
+					err := DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE (deskripsi LIKE ? OR kategori LIKE ?) AND tipe = 'income' AND user_id = ? ORDER BY created_at DESC, id DESC LIMIT 1", likeKeyword, likeKeyword, userID).Scan(&id, &deskripsi, &nominal)
 					if err == sql.ErrNoRows {
 						replyText = fmt.Sprintf("Tidak ditemukan pemasukan yang cocok dengan kata kunci **\"%s\"**. 🤔<br>Silakan ketik nama/deskripsi pemasukan lain, atau ketik **kembali**.", cleanedMsg)
 					} else if err != nil {
@@ -1101,7 +1113,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 					now := time.Now()
 					monthNamesIndo := []string{"", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"}
 					currentMonthName := monthNamesIndo[int(now.Month())]
-					replyText = fmt.Sprintf(`⚠️ **KONFIRMASI PENGHAPUSAN PEMASUKAN**<br><br>Apakah Anda yakin ingin menghapus data pemasukan Anda? Tindakan ini tidak dapat dibatalkan.<br><br>Pilih opsi penghapusan dengan mengetik nomor menu:<br><br>**1** Hapus Semua Data (Pemasukan & Pengeluaran)<br>**2** Hapus Pemasukan Bulan Ini (%s %d)<br>**3** Hapus Pemasukan Berdasarkan Nama<br>**4** Hapus Pemasukan Bulan Tertentu<br>**5** Batal (Kembali)`, currentMonthName, now.Year())
+					replyText = fmt.Sprintf(`⚠️ **KONFIRSEN HAPUS PEMASUKAN**<br><br>Apakah Anda yakin ingin menghapus data pemasukan Anda? Tindakan ini tidak dapat dibatalkan.<br><br>Pilih opsi penghapusan dengan mengetik nomor menu:<br><br>**1** Hapus Semua Data (Pemasukan & Pengeluaran)<br>**2** Hapus Pemasukan Bulan Ini (%s %d)<br>**3** Hapus Pemasukan Berdasarkan Nama<br>**4** Hapus Pemasukan Bulan Tertentu<br>**5** Batal (Kembali)`, currentMonthName, now.Year())
 				} else {
 					month, year := parseMonthAndYear(cleanedMsg)
 					hasMonthWord := false
@@ -1119,7 +1131,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 						startStr := start.Format("2006-01-02")
 						endStr := end.Format("2006-01-02")
 
-						_, err := DB.Exec("DELETE FROM transactions WHERE tipe = 'income' AND tanggal >= ? AND tanggal <= ?", startStr, endStr)
+						_, err := DB.Exec("DELETE FROM transactions WHERE tipe = 'income' AND tanggal >= ? AND tanggal <= ? AND user_id = ?", startStr, endStr, userID)
 						if err != nil {
 							log.Printf("DB Error deleting custom month incomes: %v", err)
 							replyText = "Gagal menghapus data pemasukan untuk periode tersebut. 🥺"
@@ -1129,7 +1141,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 							monthName := monthNamesIndo[month]
 							periodLabel := fmt.Sprintf("%02d/%02d/%d s/d %02d/%02d/%d", start.Day(), start.Month(), start.Year(), end.Day(), end.Month(), end.Year())
 							replyText = fmt.Sprintf("Data pemasukan untuk periode **%s %d** (%s) berhasil dihapus! 🗑️", monthName, year, periodLabel)
-							_, _ = DB.Exec("INSERT INTO chat_history (sender, message) VALUES (?, ?)", "bot", fmt.Sprintf("📢 **Notifikasi Sistem**: Data pemasukan untuk periode %s %d (%s) telah dihapus oleh pengguna.", monthName, year, periodLabel))
+							_, _ = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", userID, "bot", fmt.Sprintf("📢 **Notifikasi Sistem**: Data pemasukan untuk periode %s %d (%s) telah dihapus oleh pengguna.", monthName, year, periodLabel))
 						}
 					}
 				}
@@ -1139,34 +1151,34 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 					SetUserState(userID, "")
 					replyText = "Penghapusan data keuangan berhasil dibatalkan. Riwayat transaksi Anda tetap aman! 😌"
 				} else if cleanedMsg == "1" {
-					_, err := DB.Exec("DELETE FROM transactions")
+					_, err := DB.Exec("DELETE FROM transactions WHERE user_id = ?", userID)
 					if err != nil {
 						log.Printf("DB Error deleting all transactions: %v", err)
 						replyText = "Gagal menghapus data transaksi. 🥺"
 					} else {
 						SetUserState(userID, "")
 						replyText = "⚠️ **PEMBERITAHUAN**: Seluruh data pemasukan dan pengeluaran Anda berhasil dihapus dari sistem! 🗑️"
-						_, _ = DB.Exec("INSERT INTO chat_history (sender, message) VALUES (?, ?)", "bot", "📢 **Notifikasi Sistem**: Seluruh data transaksi telah dihapus oleh pengguna.")
+						_, _ = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", userID, "bot", "📢 **Notifikasi Sistem**: Seluruh data transaksi telah dihapus oleh pengguna.")
 					}
 				} else if cleanedMsg == "2" {
-					_, err := DB.Exec("DELETE FROM transactions WHERE tipe = 'expense'")
+					_, err := DB.Exec("DELETE FROM transactions WHERE tipe = 'expense' AND user_id = ?", userID)
 					if err != nil {
 						log.Printf("DB Error deleting all expenses: %v", err)
 						replyText = "Gagal menghapus data pengeluaran. 🥺"
 					} else {
 						SetUserState(userID, "")
 						replyText = "Data seluruh pengeluaran Anda berhasil dihapus! 🗑️"
-						_, _ = DB.Exec("INSERT INTO chat_history (sender, message) VALUES (?, ?)", "bot", "📢 **Notifikasi Sistem**: Seluruh data pengeluaran telah dihapus oleh pengguna.")
+						_, _ = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", userID, "bot", "📢 **Notifikasi Sistem**: Seluruh data pengeluaran telah dihapus oleh pengguna.")
 					}
 				} else if cleanedMsg == "3" {
-					_, err := DB.Exec("DELETE FROM transactions WHERE tipe = 'income'")
+					_, err := DB.Exec("DELETE FROM transactions WHERE tipe = 'income' AND user_id = ?", userID)
 					if err != nil {
 						log.Printf("DB Error deleting all incomes: %v", err)
 						replyText = "Gagal menghapus data pemasukan. 🥺"
 					} else {
 						SetUserState(userID, "")
 						replyText = "Data seluruh pemasukan Anda berhasil dihapus! 🗑️"
-						_, _ = DB.Exec("INSERT INTO chat_history (sender, message) VALUES (?, ?)", "bot", "📢 **Notifikasi Sistem**: Seluruh data pemasukan telah dihapus oleh pengguna.")
+						_, _ = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", userID, "bot", "📢 **Notifikasi Sistem**: Seluruh data pemasukan telah dihapus oleh pengguna.")
 					}
 				} else {
 					replyText = "Pilihan tidak valid. Silakan pilih opsi penghapusan dengan mengetik nomor menu:<br><br>**1** Hapus Semua Data (Pemasukan & Pengeluaran)<br>**2** Hapus Semua Pengeluaran Saja<br>**3** Hapus Semua Pemasukan Saja<br>**4** Batal (Kembali)"
@@ -1177,9 +1189,9 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 				if cleanedMsg == "1" || cleanedMsg == "ya" {
 					var deskripsi string
 					var nominal float64
-					err := DB.QueryRow("SELECT deskripsi, nominal FROM transactions WHERE id = ?", targetID).Scan(&deskripsi, &nominal)
+					err := DB.QueryRow("SELECT deskripsi, nominal FROM transactions WHERE id = ? AND user_id = ?", targetID, userID).Scan(&deskripsi, &nominal)
 					if err == nil {
-						_, errDel := DB.Exec("DELETE FROM transactions WHERE id = ?", targetID)
+						_, errDel := DB.Exec("DELETE FROM transactions WHERE id = ? AND user_id = ?", targetID, userID)
 						if errDel == nil {
 							replyText = fmt.Sprintf("Transaksi terakhir **%s** sebesar **%s** berhasil dihapus! 🗑️", deskripsi, formatRupiah(nominal))
 						} else {
@@ -1198,9 +1210,9 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 				targetID := strings.TrimPrefix(currentState, "CONFIRM_DELETE_TEMPLATE_")
 				if cleanedMsg == "1" || cleanedMsg == "ya" {
 					var deskripsi string
-					err := DB.QueryRow("SELECT deskripsi FROM recurring_templates WHERE id = ?", targetID).Scan(&deskripsi)
+					err := DB.QueryRow("SELECT deskripsi FROM recurring_templates WHERE id = ? AND user_id = ?", targetID, userID).Scan(&deskripsi)
 					if err == nil {
-						_, errDel := DB.Exec("DELETE FROM recurring_templates WHERE id = ?", targetID)
+						_, errDel := DB.Exec("DELETE FROM recurring_templates WHERE id = ? AND user_id = ?", targetID, userID)
 						if errDel == nil {
 							replyText = fmt.Sprintf("Template transaksi bulanan **%s** berhasil dihapus! 🗑️", deskripsi)
 						} else {
@@ -1225,13 +1237,13 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 
 					if cleanedMsg == "1" || cleanedMsg == "ya" {
 						var deskripsi string
-						err := DB.QueryRow("SELECT deskripsi FROM recurring_templates WHERE id = ?", templateID).Scan(&deskripsi)
+						err := DB.QueryRow("SELECT deskripsi FROM recurring_templates WHERE id = ? AND user_id = ?", templateID, userID).Scan(&deskripsi)
 						if err == nil {
 							var updateErr error
 							if hasDay {
-								_, updateErr = DB.Exec("UPDATE recurring_templates SET nominal = ?, target_day = ? WHERE id = ?", nominal, dayVal, templateID)
+								_, updateErr = DB.Exec("UPDATE recurring_templates SET nominal = ?, target_day = ? WHERE id = ? AND user_id = ?", nominal, dayVal, templateID, userID)
 							} else {
-								_, updateErr = DB.Exec("UPDATE recurring_templates SET nominal = ? WHERE id = ?", nominal, templateID)
+								_, updateErr = DB.Exec("UPDATE recurring_templates SET nominal = ? WHERE id = ? AND user_id = ?", nominal, templateID, userID)
 							}
 
 							if updateErr != nil {
@@ -1445,7 +1457,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 			// Find oldest planned transaction for that category
 			var id, deskripsi string
 			var nominal float64
-			err := DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE kategori = ? AND status = 'planned' AND tipe = 'expense' ORDER BY tanggal ASC LIMIT 1", category).Scan(&id, &deskripsi, &nominal)
+			err := DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE kategori = ? AND status = 'planned' AND tipe = 'expense' AND user_id = ? ORDER BY tanggal ASC LIMIT 1", category, userID).Scan(&id, &deskripsi, &nominal)
 
 			if err == sql.ErrNoRows {
 				replyText = fmt.Sprintf("Tidak ada tagihan tertunda untuk kategori **\"%s\"** yang terdaftar. 😊<br><br>Mau catat transaksi baru? Contoh: \"listrik 200rb\"", category)
@@ -1454,7 +1466,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 				replyText = "Maaf, ada kendala mencari tagihan di database. 🥺"
 			} else {
 				// Update status to paid
-				_, err = DB.Exec("UPDATE transactions SET status = 'paid' WHERE id = ?", id)
+				_, err = DB.Exec("UPDATE transactions SET status = 'paid' WHERE id = ? AND user_id = ?", id, userID)
 				if err != nil {
 					log.Printf("DB Error updating status: %v", err)
 					replyText = "Gagal memperbarui status tagihan. 🥺"
@@ -1474,7 +1486,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 			if target == "last" {
 				var id, deskripsi string
 				var nominal float64
-				err := DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions ORDER BY created_at DESC, id DESC LIMIT 1").Scan(&id, &deskripsi, &nominal)
+				err := DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 1", userID).Scan(&id, &deskripsi, &nominal)
 
 				if err == sql.ErrNoRows {
 					replyText = "Tidak ada transaksi yang bisa dihapus. 🤷‍♂️"
@@ -1492,9 +1504,9 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 				likeKeyword := "%" + keyword + "%"
 				var err error
 				if tipe == "all" {
-					err = DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE deskripsi LIKE ? OR kategori LIKE ? ORDER BY created_at DESC, id DESC LIMIT 1", likeKeyword, likeKeyword).Scan(&id, &deskripsi, &nominal)
+					err = DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE (deskripsi LIKE ? OR kategori LIKE ?) AND user_id = ? ORDER BY created_at DESC, id DESC LIMIT 1", likeKeyword, likeKeyword, userID).Scan(&id, &deskripsi, &nominal)
 				} else {
-					err = DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE (deskripsi LIKE ? OR kategori LIKE ?) AND tipe = ? ORDER BY created_at DESC, id DESC LIMIT 1", likeKeyword, likeKeyword, tipe).Scan(&id, &deskripsi, &nominal)
+					err = DB.QueryRow("SELECT id, deskripsi, nominal FROM transactions WHERE (deskripsi LIKE ? OR kategori LIKE ?) AND tipe = ? AND user_id = ? ORDER BY created_at DESC, id DESC LIMIT 1", likeKeyword, likeKeyword, tipe, userID).Scan(&id, &deskripsi, &nominal)
 				}
 
 				if err == sql.ErrNoRows {
@@ -2017,9 +2029,9 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 			var rows *sql.Rows
 			var err error
 			if tipe == "all" {
-				rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", startStr, endStr)
+				rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tanggal >= ? AND tanggal <= ? AND user_id = ? ORDER BY tanggal ASC, created_at ASC", startStr, endStr, userID)
 			} else {
-				rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tipe = ? AND tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", tipe, startStr, endStr)
+				rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tipe = ? AND tanggal >= ? AND tanggal <= ? AND user_id = ? ORDER BY tanggal ASC, created_at ASC", tipe, startStr, endStr, userID)
 			}
 
 			if err != nil {
@@ -2134,9 +2146,9 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 			var rows *sql.Rows
 			var err error
 			if tipe == "all" {
-				rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", startStr, endStr)
+				rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tanggal >= ? AND tanggal <= ? AND user_id = ? ORDER BY tanggal ASC, created_at ASC", startStr, endStr, userID)
 			} else {
-				rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tipe = ? AND tanggal >= ? AND tanggal <= ? ORDER BY tanggal ASC, created_at ASC", tipe, startStr, endStr)
+				rows, err = DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tipe = ? AND tanggal >= ? AND tanggal <= ? AND user_id = ? ORDER BY tanggal ASC, created_at ASC", tipe, startStr, endStr, userID)
 			}
 
 			if err != nil {
@@ -2230,7 +2242,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Save Bot message to history
-	_, err = DB.Exec("INSERT INTO chat_history (sender, message) VALUES (?, ?)", "bot", replyText)
+	_, err = DB.Exec("INSERT INTO chat_history (user_id, sender, message) VALUES (?, ?, ?)", userID, "bot", replyText)
 	if err != nil {
 		log.Printf("Error saving bot chat: %v", err)
 	}
@@ -2259,9 +2271,9 @@ func handleQueryAnswerGo(queryType string, userID string) string {
 	switch queryType {
 	case "SALDO_INQUIRY":
 		var paidIncome, paidExpense, plannedExpense float64
-		_ = DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM transactions WHERE tipe = 'income' AND status = 'paid'").Scan(&paidIncome)
-		_ = DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM transactions WHERE tipe = 'expense' AND status = 'paid'").Scan(&paidExpense)
-		_ = DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM transactions WHERE tipe = 'expense' AND status = 'planned'").Scan(&plannedExpense)
+		_ = DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM transactions WHERE tipe = 'income' AND status = 'paid' AND user_id = ?", userID).Scan(&paidIncome)
+		_ = DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM transactions WHERE tipe = 'expense' AND status = 'paid' AND user_id = ?", userID).Scan(&paidExpense)
+		_ = DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM transactions WHERE tipe = 'expense' AND status = 'planned' AND user_id = ?", userID).Scan(&plannedExpense)
 
 		saldo := paidIncome - paidExpense
 		sisaAman := saldo - plannedExpense
@@ -2270,7 +2282,7 @@ func handleQueryAnswerGo(queryType string, userID string) string {
 			formatRupiah(saldo), formatRupiah(plannedExpense), formatRupiah(sisaAman))
 
 	case "TAGIHAN_INQUIRY":
-		rows, err := DB.Query("SELECT deskripsi, nominal FROM transactions WHERE tipe = 'expense' AND status = 'planned' ORDER BY tanggal ASC")
+		rows, err := DB.Query("SELECT deskripsi, nominal FROM transactions WHERE tipe = 'expense' AND status = 'planned' AND user_id = ? ORDER BY tanggal ASC", userID)
 		if err != nil {
 			return "Gagal memuat tagihan. 🥺"
 		}
@@ -2295,7 +2307,7 @@ func handleQueryAnswerGo(queryType string, userID string) string {
 
 	case "TODAY_EXPENSE":
 		todayStr := time.Now().Format("2006-01-02")
-		rows, err := DB.Query("SELECT deskripsi, nominal FROM transactions WHERE tipe = 'expense' AND status = 'paid' AND tanggal = ? ORDER BY created_at DESC", todayStr)
+		rows, err := DB.Query("SELECT deskripsi, nominal FROM transactions WHERE tipe = 'expense' AND status = 'paid' AND tanggal = ? AND user_id = ? ORDER BY created_at DESC", todayStr, userID)
 		if err != nil {
 			return "Gagal memuat pengeluaran. 🥺"
 		}
@@ -2327,7 +2339,7 @@ func handleQueryAnswerGo(queryType string, userID string) string {
 		endStr := end.Format("2006-01-02")
 
 		var total float64
-		err := DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM transactions WHERE tipe = 'expense' AND status = 'paid' AND tanggal >= ? AND tanggal <= ?", startStr, endStr).Scan(&total)
+		err := DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM transactions WHERE tipe = 'expense' AND status = 'paid' AND tanggal >= ? AND tanggal <= ? AND user_id = ?", startStr, endStr, userID).Scan(&total)
 		if err != nil {
 			return "Gagal memuat total bulanan. 🥺"
 		}
