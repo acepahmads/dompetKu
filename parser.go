@@ -665,7 +665,11 @@ func ProcessUserInput(messageText string) ParseResult {
 		}
 	}
 
-	if hasListKeyword {
+	// Also treat as list if it's explicitly "pemasukan" or "pengeluaran" and has NO nominal
+	_, hasNominalForList := ParseNominal(textLower)
+	isExplicitTypeQuery := !hasNominalForList && (strings.Contains(textLower, "pemasukan") || strings.Contains(textLower, "pengeluaran"))
+
+	if hasListKeyword || isExplicitTypeQuery {
 		if strings.Contains(textLower, "pengeluaran") {
 			isListTx = true
 			txTipe = "expense"
@@ -935,7 +939,7 @@ func ProcessUserInput(messageText string) ParseResult {
 		nominal, _ := ParseNominal(messageText)
 		
 		// Detect type (income vs expense)
-		incomeKeywords := []string{"gaji", "pemasukan", "income", "transfer masuk", "dapat duit", "bonus", "sampingan", "untung", "angpao", "salary", "thr"}
+		incomeKeywords := []string{"gaji", "pemasukan", "income", "transfer masuk", "dapat duit", "bonus", "sampingan", "untung", "angpao", "salary", "thr", "uang masuk", "masuk"}
 		tipe := "expense"
 		for _, kw := range incomeKeywords {
 			if strings.Contains(textLower, kw) {
