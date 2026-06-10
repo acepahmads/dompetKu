@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -114,6 +115,62 @@ func getUserID(r *http.Request) string {
 		return uid
 	}
 	return "user_1"
+}
+
+var anchorRegex = regexp.MustCompile(`<a\s+[^>]*href=["']([^"']+)["'][^>]*>(.*?)</a>`)
+var stripTagsRegex = regexp.MustCompile(`<[^>]*>`)
+
+func cleanHTMLForWhatsApp(html string, baseURL string) string {
+	// 1. Replace <br> and <br/> with newline
+	res := strings.ReplaceAll(html, "<br>", "\n")
+	res = strings.ReplaceAll(res, "<br/>", "\n")
+
+	// 2. Replace strong tags with bold asterisks
+	res = strings.ReplaceAll(res, "<strong>", "*")
+	res = strings.ReplaceAll(res, "</strong>", "*")
+
+	// 3. Process anchor links: <a href="url">text</a> -> text: baseURL + url
+	res = anchorRegex.ReplaceAllStringFunc(res, func(anchor string) string {
+		matches := anchorRegex.FindStringSubmatch(anchor)
+		if len(matches) < 3 {
+			return anchor
+		}
+		url := matches[1]
+		text := matches[2]
+
+		// Strip all HTML tags from the inner text (e.g. inner divs, spans)
+		text = stripTagsRegex.ReplaceAllString(text, "")
+		
+		// Clean up spacing
+		textLines := strings.Split(text, "\n")
+		var cleanedParts []string
+		for _, line := range textLines {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				cleanedParts = append(cleanedParts, line)
+			}
+		}
+		text = strings.Join(cleanedParts, " ")
+		text = strings.TrimSpace(text)
+
+		// Fix &amp; to &
+		url = strings.ReplaceAll(url, "&amp;", "&")
+
+		// If URL is relative, prepend base URL
+		if strings.HasPrefix(url, "/") {
+			url = baseURL + url
+		}
+
+		return fmt.Sprintf("%s: %s", text, url)
+	})
+
+	// 4. Strip any remaining HTML tags (like parent divs or helper elements)
+	res = stripTagsRegex.ReplaceAllString(res, "")
+
+	// Clean up duplicate spaces or newlines
+	res = regexp.MustCompile(`\n{3,}`).ReplaceAllString(res, "\n\n")
+
+	return strings.TrimSpace(res)
 }
 
 // Helper: getMonthCycleBounds returns start and end dates for a payroll cycle
@@ -2873,12 +2930,16 @@ func WhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 			}
 			respBytes := wMock.Body.Bytes()
 			if errJson := json.Unmarshal(respBytes, &respPayload); errJson == nil && respPayload.Reply != "" {
-				// Clean replyText HTML breaks to simple newlines for WhatsApp
-				cleanedReply := strings.ReplaceAll(respPayload.Reply, "<br>", "\n")
-				cleanedReply = strings.ReplaceAll(cleanedReply, "<br/>", "\n")
-				// Replace strong markdown back to standard whatsapp bold
-				cleanedReply = strings.ReplaceAll(cleanedReply, "<strong>", "*")
-				cleanedReply = strings.ReplaceAll(cleanedReply, "</strong>", "*")
+				proto := "https"
+				if p := r.Header.Get("X-Forwarded-Proto"); p != "" {
+					proto = p
+				}
+				baseURL := proto + "://" + r.Host
+				if r.Host == "" {
+					baseURL = "http://localhost:8085"
+				}
+
+				cleanedReply := cleanHTMLForWhatsApp(respPayload.Reply, baseURL)
 
 				// Send reply back to the user via WhatsApp Send API
 				errSend := sendWhatsAppMessage(senderNum, cleanedReply)
