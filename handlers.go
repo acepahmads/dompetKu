@@ -125,9 +125,9 @@ func cleanHTMLForWhatsApp(html string, baseURL string) string {
 	res := strings.ReplaceAll(html, "<br>", "\n")
 	res = strings.ReplaceAll(res, "<br/>", "\n")
 
-	// 2. Replace strong tags with bold asterisks
-	res = strings.ReplaceAll(res, "<strong>", "*")
-	res = strings.ReplaceAll(res, "</strong>", "*")
+	// 2. Remove strong tags (we do not add asterisks since we want to remove them)
+	res = strings.ReplaceAll(res, "<strong>", "")
+	res = strings.ReplaceAll(res, "</strong>", "")
 
 	// 3. Process anchor links: <a href="url">text</a> -> text: baseURL + url
 	res = anchorRegex.ReplaceAllStringFunc(res, func(anchor string) string {
@@ -166,6 +166,9 @@ func cleanHTMLForWhatsApp(html string, baseURL string) string {
 
 	// 4. Strip any remaining HTML tags (like parent divs or helper elements)
 	res = stripTagsRegex.ReplaceAllString(res, "")
+
+	// 5. Remove all asterisks * (both single and double asterisks)
+	res = strings.ReplaceAll(res, "*", "")
 
 	// Clean up duplicate spaces or newlines
 	res = regexp.MustCompile(`\n{3,}`).ReplaceAllString(res, "\n\n")
