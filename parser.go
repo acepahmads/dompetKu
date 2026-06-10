@@ -659,7 +659,7 @@ func ProcessUserInput(messageText string) ParseResult {
 	listKeywords := []string{"list", "rincian", "daftar", "detail", "tampilkan", "laporan", "report", "rekap"}
 	hasListKeyword := false
 	for _, kw := range listKeywords {
-		if strings.Contains(textLower, kw) {
+		if containsWord(textLower, kw) {
 			hasListKeyword = true
 			break
 		}
@@ -1165,4 +1165,11 @@ func minOfThree(a, b, c int) int {
 		return b
 	}
 	return c
+}
+
+// containsWord checks if the word exists as a standalone word (respecting word boundaries)
+func containsWord(s string, word string) bool {
+	pattern := `\b` + regexp.QuoteMeta(word) + `\b`
+	matched, _ := regexp.MatchString(pattern, s)
+	return matched
 }
