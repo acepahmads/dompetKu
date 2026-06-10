@@ -2039,83 +2039,112 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 				replyText = "Gagal memuat rincian transaksi dari database. 🥺"
 			} else {
 				defer rows.Close()
-				var lines []string
-				var totalExpense, totalIncome float64
-				for rows.Next() {
-					var tanggal, deskripsi, kategori, rowTipe, status string
-					var nominal float64
-					if errScan := rows.Scan(&tanggal, &deskripsi, &kategori, &rowTipe, &nominal, &status); errScan == nil {
-						dateStr := tanggal
-						if len(tanggal) >= 10 {
-							dateStr = tanggal[:10]
-						}
-						tParts := strings.Split(dateStr, "-")
-						if len(tParts) == 3 {
-							dateStr = tParts[2] + "/" + tParts[1]
-						}
-
-						catLabel, exists := catLabels[kategori]
-						if !exists {
-							catLabel = kategori
-							if len(catLabel) > 0 {
-								catLabel = strings.ToUpper(catLabel[0:1]) + catLabel[1:]
-							}
-						}
-
-						statusSuffix := ""
-						if status == "planned" {
-							statusSuffix = " *(Planned)*"
-						}
-
-						sign := ""
-						if tipe == "all" {
-							if rowTipe == "income" {
-								sign = "[+] "
-							} else {
-								sign = "[-] "
-							}
-						}
-
-						line := fmt.Sprintf("• [%s] %s%s (%s): **%s**%s", dateStr, sign, deskripsi, catLabel, formatRupiah(nominal), statusSuffix)
-						lines = append(lines, line)
-
-						if rowTipe == "income" {
-							totalIncome += nominal
-						} else {
-							totalExpense += nominal
-						}
-					}
-				}
-
 				periodLabel := fmt.Sprintf("%s %d (%s s/d %s)", monthName, year, formatDateIndo(start), formatDateIndo(end))
+				downloadPDF := fmt.Sprintf("/api/download/pdf?tipe=%s&start_date=%s&end_date=%s&user_id=%s", tipe, startStr, endStr, userID)
+				downloadXLS := fmt.Sprintf("/api/download/xls?tipe=%s&start_date=%s&end_date=%s&user_id=%s", tipe, startStr, endStr, userID)
+				downloadWord := fmt.Sprintf("/api/download/word?tipe=%s&start_date=%s&end_date=%s&user_id=%s", tipe, startStr, endStr, userID)
 
-				if len(lines) == 0 {
-					typeLabel := "transaksi"
-					if tipe == "expense" {
-						typeLabel = "pengeluaran"
-					} else if tipe == "income" {
-						typeLabel = "pemasukan"
+				if tipe == "all" {
+					var incomes []string
+					var expenses []string
+					var totalIncome, totalExpense float64
+					for rows.Next() {
+						var tanggal, deskripsi, kategori, rowTipe, status string
+						var nominal float64
+						if errScan := rows.Scan(&tanggal, &deskripsi, &kategori, &rowTipe, &nominal, &status); errScan == nil {
+							dateStr := tanggal
+							if len(tanggal) >= 10 {
+								dateStr = tanggal[8:10] + "/" + tanggal[5:7]
+							}
+
+							catLabel, exists := catLabels[kategori]
+							if !exists {
+								catLabel = kategori
+								if len(catLabel) > 0 {
+									catLabel = strings.ToUpper(catLabel[0:1]) + catLabel[1:]
+								}
+							}
+
+							statusSuffix := ""
+							if status == "planned" {
+								statusSuffix = " *(Planned)*"
+							}
+
+							line := fmt.Sprintf("• [%s] %s (%s): **%s**%s", dateStr, deskripsi, catLabel, formatRupiah(nominal), statusSuffix)
+							if rowTipe == "income" {
+								incomes = append(incomes, line)
+								totalIncome += nominal
+							} else {
+								expenses = append(expenses, line)
+								totalExpense += nominal
+							}
+						}
 					}
-					replyText = fmt.Sprintf("Tidak ada %s yang tercatat untuk periode **%s**. 🤷‍♂️", typeLabel, periodLabel)
-				} else {
-					var totalText string
-					if tipe == "expense" {
-						totalText = fmt.Sprintf("<br>**Total Pengeluaran**: %s", formatRupiah(totalExpense))
-					} else if tipe == "income" {
-						totalText = fmt.Sprintf("<br>**Total Pemasukan**: %s", formatRupiah(totalIncome))
+
+					if len(incomes) == 0 && len(expenses) == 0 {
+						replyText = fmt.Sprintf("Tidak ada transaksi yang tercatat untuk periode **%s**. 🤷‍♂️", periodLabel)
 					} else {
-						totalText = fmt.Sprintf("<br>**Total Pemasukan**: %s<br>**Total Pengeluaran**: %s<br>**Selisih**: %s",
-							formatRupiah(totalIncome), formatRupiah(totalExpense), formatRupiah(totalIncome-totalExpense))
+						incomeListStr := "Belum ada pemasukan"
+						if len(incomes) > 0 {
+							incomeListStr = strings.Join(incomes, "<br>")
+						}
+
+						expenseListStr := "Belum ada pengeluaran"
+						if len(expenses) > 0 {
+							expenseListStr = strings.Join(expenses, "<br>")
+						}
+
+						saldo := totalIncome - totalExpense
+
+						replyText = fmt.Sprintf(`📊 **LAPORAN KEUANGAN BULAN INI**<br>Periode: **%s**<br><br>📥 **PEMASUKAN (INCOME)**<br>%s<br>Total Pemasukan: **%s**<br><br>📤 **PENGELUARAN (EXPENSE)**<br>%s<br>Total Pengeluaran: **%s**<br><br>💰 **SALDO & RINGKASAN**<br>Saldo saat ini: **%s**<br><br>📄 **UNDUH LAPORAN**<br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh PDF</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Excel</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Word</a>`,
+							periodLabel, incomeListStr, formatRupiah(totalIncome), expenseListStr, formatRupiah(totalExpense), formatRupiah(saldo), downloadPDF, downloadXLS, downloadWord)
+					}
+				} else {
+					var lines []string
+					var totalAmount float64
+					for rows.Next() {
+						var tanggal, deskripsi, kategori, rowTipe, status string
+						var nominal float64
+						if errScan := rows.Scan(&tanggal, &deskripsi, &kategori, &rowTipe, &nominal, &status); errScan == nil {
+							dateStr := tanggal
+							if len(tanggal) >= 10 {
+								dateStr = tanggal[8:10] + "/" + tanggal[5:7]
+							}
+
+							catLabel, exists := catLabels[kategori]
+							if !exists {
+								catLabel = kategori
+								if len(catLabel) > 0 {
+									catLabel = strings.ToUpper(catLabel[0:1]) + catLabel[1:]
+								}
+							}
+
+							statusSuffix := ""
+							if status == "planned" {
+								statusSuffix = " *(Planned)*"
+							}
+
+							line := fmt.Sprintf("• [%s] %s (%s): **%s**%s", dateStr, deskripsi, catLabel, formatRupiah(nominal), statusSuffix)
+							lines = append(lines, line)
+							totalAmount += nominal
+						}
 					}
 
+					typeLabel := "pengeluaran"
+					totalLabel := "Pengeluaran"
 					header := "🧾 **Daftar Rincian Pengeluaran**"
 					if tipe == "income" {
+						typeLabel = "pemasukan"
+						totalLabel = "Pemasukan"
 						header = "🧾 **Daftar Rincian Pemasukan**"
-					} else if tipe == "all" {
-						header = "🧾 **Daftar Rincian Transaksi**"
 					}
 
-					replyText = fmt.Sprintf("%s (%s):<br><br>%s<br>%s", header, periodLabel, strings.Join(lines, "<br>"), totalText)
+					if len(lines) == 0 {
+						replyText = fmt.Sprintf("Tidak ada %s yang tercatat untuk periode **%s**. 🤷‍♂️", typeLabel, periodLabel)
+					} else {
+						replyText = fmt.Sprintf(`%s (%s):<br><br>%s<br><br>**Total %s**: %s<br><br>📄 **UNDUH LAPORAN**<br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh PDF</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Excel</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Word</a>`,
+							header, periodLabel, strings.Join(lines, "<br>"), totalLabel, formatRupiah(totalAmount), downloadPDF, downloadXLS, downloadWord)
+					}
 				}
 			}
 
@@ -2156,83 +2185,112 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 				replyText = "Gagal memuat rincian transaksi dari database. 🥺"
 			} else {
 				defer rows.Close()
-				var lines []string
-				var totalExpense, totalIncome float64
-				for rows.Next() {
-					var tanggal, deskripsi, kategori, rowTipe, status string
-					var nominal float64
-					if errScan := rows.Scan(&tanggal, &deskripsi, &kategori, &rowTipe, &nominal, &status); errScan == nil {
-						dateStr := tanggal
-						if len(tanggal) >= 10 {
-							dateStr = tanggal[:10]
-						}
-						tParts := strings.Split(dateStr, "-")
-						if len(tParts) == 3 {
-							dateStr = tParts[2] + "/" + tParts[1]
-						}
-
-						catLabel, exists := catLabels[kategori]
-						if !exists {
-							catLabel = kategori
-							if len(catLabel) > 0 {
-								catLabel = strings.ToUpper(catLabel[0:1]) + catLabel[1:]
-							}
-						}
-
-						statusSuffix := ""
-						if status == "planned" {
-							statusSuffix = " *(Planned)*"
-						}
-
-						sign := ""
-						if tipe == "all" {
-							if rowTipe == "income" {
-								sign = "[+] "
-							} else {
-								sign = "[-] "
-							}
-						}
-
-						line := fmt.Sprintf("• [%s] %s%s (%s): **%s**%s", dateStr, sign, deskripsi, catLabel, formatRupiah(nominal), statusSuffix)
-						lines = append(lines, line)
-
-						if rowTipe == "income" {
-							totalIncome += nominal
-						} else {
-							totalExpense += nominal
-						}
-					}
-				}
-
 				periodLabel := fmt.Sprintf("%s s/d %s", formatDateIndo(tStart), formatDateIndo(tEnd))
+				downloadPDF := fmt.Sprintf("/api/download/pdf?tipe=%s&start_date=%s&end_date=%s&user_id=%s", tipe, startStr, endStr, userID)
+				downloadXLS := fmt.Sprintf("/api/download/xls?tipe=%s&start_date=%s&end_date=%s&user_id=%s", tipe, startStr, endStr, userID)
+				downloadWord := fmt.Sprintf("/api/download/word?tipe=%s&start_date=%s&end_date=%s&user_id=%s", tipe, startStr, endStr, userID)
 
-				if len(lines) == 0 {
-					typeLabel := "transaksi"
-					if tipe == "expense" {
-						typeLabel = "pengeluaran"
-					} else if tipe == "income" {
-						typeLabel = "pemasukan"
+				if tipe == "all" {
+					var incomes []string
+					var expenses []string
+					var totalIncome, totalExpense float64
+					for rows.Next() {
+						var tanggal, deskripsi, kategori, rowTipe, status string
+						var nominal float64
+						if errScan := rows.Scan(&tanggal, &deskripsi, &kategori, &rowTipe, &nominal, &status); errScan == nil {
+							dateStr := tanggal
+							if len(tanggal) >= 10 {
+								dateStr = tanggal[8:10] + "/" + tanggal[5:7]
+							}
+
+							catLabel, exists := catLabels[kategori]
+							if !exists {
+								catLabel = kategori
+								if len(catLabel) > 0 {
+									catLabel = strings.ToUpper(catLabel[0:1]) + catLabel[1:]
+								}
+							}
+
+							statusSuffix := ""
+							if status == "planned" {
+								statusSuffix = " *(Planned)*"
+							}
+
+							line := fmt.Sprintf("• [%s] %s (%s): **%s**%s", dateStr, deskripsi, catLabel, formatRupiah(nominal), statusSuffix)
+							if rowTipe == "income" {
+								incomes = append(incomes, line)
+								totalIncome += nominal
+							} else {
+								expenses = append(expenses, line)
+								totalExpense += nominal
+							}
+						}
 					}
-					replyText = fmt.Sprintf("Tidak ada %s yang tercatat untuk periode **%s**. 🤷‍♂️", typeLabel, periodLabel)
-				} else {
-					var totalText string
-					if tipe == "expense" {
-						totalText = fmt.Sprintf("<br>**Total Pengeluaran**: %s", formatRupiah(totalExpense))
-					} else if tipe == "income" {
-						totalText = fmt.Sprintf("<br>**Total Pemasukan**: %s", formatRupiah(totalIncome))
+
+					if len(incomes) == 0 && len(expenses) == 0 {
+						replyText = fmt.Sprintf("Tidak ada transaksi yang tercatat untuk periode **%s**. 🤷‍♂️", periodLabel)
 					} else {
-						totalText = fmt.Sprintf("<br>**Total Pemasukan**: %s<br>**Total Pengeluaran**: %s<br>**Selisih**: %s",
-							formatRupiah(totalIncome), formatRupiah(totalExpense), formatRupiah(totalIncome-totalExpense))
+						incomeListStr := "Belum ada pemasukan"
+						if len(incomes) > 0 {
+							incomeListStr = strings.Join(incomes, "<br>")
+						}
+
+						expenseListStr := "Belum ada pengeluaran"
+						if len(expenses) > 0 {
+							expenseListStr = strings.Join(expenses, "<br>")
+						}
+
+						saldo := totalIncome - totalExpense
+
+						replyText = fmt.Sprintf(`📊 **LAPORAN KEUANGAN KUSTOM**<br>Periode: **%s**<br><br>📥 **PEMASUKAN (INCOME)**<br>%s<br>Total Pemasukan: **%s**<br><br>📤 **PENGELUARAN (EXPENSE)**<br>%s<br>Total Pengeluaran: **%s**<br><br>💰 **SALDO & RINGKASAN**<br>Saldo saat ini: **%s**<br><br>📄 **UNDUH LAPORAN**<br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh PDF</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Excel</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Word</a>`,
+							periodLabel, incomeListStr, formatRupiah(totalIncome), expenseListStr, formatRupiah(totalExpense), formatRupiah(saldo), downloadPDF, downloadXLS, downloadWord)
+					}
+				} else {
+					var lines []string
+					var totalAmount float64
+					for rows.Next() {
+						var tanggal, deskripsi, kategori, rowTipe, status string
+						var nominal float64
+						if errScan := rows.Scan(&tanggal, &deskripsi, &kategori, &rowTipe, &nominal, &status); errScan == nil {
+							dateStr := tanggal
+							if len(tanggal) >= 10 {
+								dateStr = tanggal[8:10] + "/" + tanggal[5:7]
+							}
+
+							catLabel, exists := catLabels[kategori]
+							if !exists {
+								catLabel = kategori
+								if len(catLabel) > 0 {
+									catLabel = strings.ToUpper(catLabel[0:1]) + catLabel[1:]
+								}
+							}
+
+							statusSuffix := ""
+							if status == "planned" {
+								statusSuffix = " *(Planned)*"
+							}
+
+							line := fmt.Sprintf("• [%s] %s (%s): **%s**%s", dateStr, deskripsi, catLabel, formatRupiah(nominal), statusSuffix)
+							lines = append(lines, line)
+							totalAmount += nominal
+						}
 					}
 
+					typeLabel := "pengeluaran"
+					totalLabel := "Pengeluaran"
 					header := "🧾 **Daftar Rincian Pengeluaran**"
 					if tipe == "income" {
+						typeLabel = "pemasukan"
+						totalLabel = "Pemasukan"
 						header = "🧾 **Daftar Rincian Pemasukan**"
-					} else if tipe == "all" {
-						header = "🧾 **Daftar Rincian Transaksi**"
 					}
 
-					replyText = fmt.Sprintf("%s (%s):<br><br>%s<br>%s", header, periodLabel, strings.Join(lines, "<br>"), totalText)
+					if len(lines) == 0 {
+						replyText = fmt.Sprintf("Tidak ada %s yang tercatat untuk periode **%s**. 🤷‍♂️", typeLabel, periodLabel)
+					} else {
+						replyText = fmt.Sprintf(`%s (%s):<br><br>%s<br><br>**Total %s**: %s<br><br>📄 **UNDUH LAPORAN**<br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh PDF</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Excel</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Word</a>`,
+							header, periodLabel, strings.Join(lines, "<br>"), totalLabel, formatRupiah(totalAmount), downloadPDF, downloadXLS, downloadWord)
+					}
 				}
 			}
 
@@ -2347,7 +2405,88 @@ func handleQueryAnswerGo(queryType string, userID string) string {
 		return fmt.Sprintf("Total pengeluaran bulan ini (%s s/d %s): **%s**", formatDateIndo(start), formatDateIndo(end), formatRupiah(total))
 
 	case "REPORT_INQUIRY":
-		return "Butuh laporan keuangan? 📊<br>Kamu bisa generate langsung menggunakan tombol **Laporan Harian** atau **Laporan Bulanan** di bagian kanan dashboard!"
+		currentMonth := int(time.Now().Month())
+		currentYear := time.Now().Year()
+		salaryDay := GetSalaryDay(userID)
+		start, end := getMonthCycleBounds(currentYear, currentMonth, salaryDay)
+		startStr := start.Format("2006-01-02")
+		endStr := end.Format("2006-01-02")
+
+		catLabels := map[string]string{}
+		catRows, errCat := DB.Query("SELECT id, label FROM categories")
+		if errCat == nil {
+			defer catRows.Close()
+			for catRows.Next() {
+				var cid, clabel string
+				if errScan := catRows.Scan(&cid, &clabel); errScan == nil {
+					catLabels[cid] = clabel
+				}
+			}
+		}
+
+		rows, err := DB.Query("SELECT tanggal, deskripsi, kategori, tipe, nominal, status FROM transactions WHERE tanggal >= ? AND tanggal <= ? AND user_id = ? ORDER BY tanggal ASC, created_at ASC", startStr, endStr, userID)
+		if err != nil {
+			log.Printf("DB Error querying transactions for report: %v", err)
+			return "Gagal memuat data laporan dari database. 🥺"
+		}
+		defer rows.Close()
+
+		var incomes []string
+		var expenses []string
+		var totalIncome, totalExpense float64
+
+		for rows.Next() {
+			var tanggal, deskripsi, kategori, tipe, status string
+			var nominal float64
+			if errScan := rows.Scan(&tanggal, &deskripsi, &kategori, &tipe, &nominal, &status); errScan == nil {
+				dateStr := tanggal
+				if len(tanggal) >= 10 {
+					dateStr = tanggal[8:10] + "/" + tanggal[5:7]
+				}
+
+				catLabel, exists := catLabels[kategori]
+				if !exists {
+					catLabel = kategori
+					if len(catLabel) > 0 {
+						catLabel = strings.ToUpper(catLabel[0:1]) + catLabel[1:]
+					}
+				}
+
+				statusSuffix := ""
+				if status == "planned" {
+					statusSuffix = " *(Planned)*"
+				}
+
+				line := fmt.Sprintf("• [%s] %s (%s): **%s**%s", dateStr, deskripsi, catLabel, formatRupiah(nominal), statusSuffix)
+				if tipe == "income" {
+					incomes = append(incomes, line)
+					totalIncome += nominal
+				} else {
+					expenses = append(expenses, line)
+					totalExpense += nominal
+				}
+			}
+		}
+
+		periodLabel := fmt.Sprintf("%s s/d %s", formatDateIndo(start), formatDateIndo(end))
+		saldo := totalIncome - totalExpense
+
+		incomeListStr := "Belum ada pemasukan"
+		if len(incomes) > 0 {
+			incomeListStr = strings.Join(incomes, "<br>")
+		}
+
+		expenseListStr := "Belum ada pengeluaran"
+		if len(expenses) > 0 {
+			expenseListStr = strings.Join(expenses, "<br>")
+		}
+
+		downloadPDF := fmt.Sprintf("/api/download/pdf?tipe=all&start_date=%s&end_date=%s&user_id=%s", startStr, endStr, userID)
+		downloadXLS := fmt.Sprintf("/api/download/xls?tipe=all&start_date=%s&end_date=%s&user_id=%s", startStr, endStr, userID)
+		downloadWord := fmt.Sprintf("/api/download/word?tipe=%s&start_date=%s&end_date=%s&user_id=%s", "all", startStr, endStr, userID)
+
+		return fmt.Sprintf(`📊 **LAPORAN KEUANGAN BULAN INI**<br>Periode: **%s**<br><br>📥 **PEMASUKAN (INCOME)**<br>%s<br>Total Pemasukan: **%s**<br><br>📤 **PENGELUARAN (EXPENSE)**<br>%s<br>Total Pengeluaran: **%s**<br><br>💰 **SALDO & RINGKASAN**<br>Saldo saat ini: **%s**<br><br>📄 **UNDUH LAPORAN**<br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh PDF</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Excel</a><br>• <a href="%s" download class="text-[#00a884] font-semibold underline">Unduh Word</a>`,
+			periodLabel, incomeListStr, formatRupiah(totalIncome), expenseListStr, formatRupiah(totalExpense), formatRupiah(saldo), downloadPDF, downloadXLS, downloadWord)
 	}
 
 	return "Maaf, terjadi kendala saat memproses query."

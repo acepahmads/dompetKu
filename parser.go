@@ -656,7 +656,7 @@ func ProcessUserInput(messageText string) ParseResult {
 	// Detect LIST_TRANSACTIONS_BY_MONTH
 	isListTx := false
 	txTipe := "expense"
-	listKeywords := []string{"list", "rincian", "daftar", "detail", "tampilkan"}
+	listKeywords := []string{"list", "rincian", "daftar", "detail", "tampilkan", "laporan", "report", "rekap"}
 	hasListKeyword := false
 	for _, kw := range listKeywords {
 		if strings.Contains(textLower, kw) {
@@ -672,7 +672,7 @@ func ProcessUserInput(messageText string) ParseResult {
 		} else if strings.Contains(textLower, "pemasukan") {
 			isListTx = true
 			txTipe = "income"
-		} else if strings.Contains(textLower, "transaksi") {
+		} else {
 			isListTx = true
 			txTipe = "all"
 		}
