@@ -2780,7 +2780,7 @@ func parseIncomingWebhook(body []byte) (string, string, error) {
 func sendWhatsAppMessage(toPhone, messageText string) error {
 	apiKey := os.Getenv("WHATSAPP_API_KEY")
 	if apiKey == "" {
-		apiKey = "apico1d_live_BUrDwTcJrwDyxXPM931fRd1IHTCPzQl" // default key from user's screen
+		apiKey = "apicoid_live_BUrDwTcJrwDyxxPM931fRdiIHTCPzQMJwDf0K2v4MbQ" // default key from user's screen
 	}
 
 	sendURL := os.Getenv("WHATSAPP_SEND_URL")
