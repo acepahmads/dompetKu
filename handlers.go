@@ -1260,7 +1260,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 				isStateProcessed = true
 			} else if currentState == "CONFIRM_CREATE_TEMPLATES" {
 				if cleanedMsg == "1" || cleanedMsg == "ya" {
-					_, err := DB.Exec("UPDATE recurring_templates SET status = 'planned' WHERE user_id = 'user_1' AND status = 'pending'")
+					_, err := DB.Exec("UPDATE recurring_templates SET status = 'planned' WHERE user_id = ? AND status = 'pending'", userID)
 					if err != nil {
 						log.Printf("DB Error activating templates: %v", err)
 						replyText = "Gagal mengaktifkan template di database. 🥺"
@@ -1268,7 +1268,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 						generateMissingTemplateTransactions(userID)
 
 						// Fetch list of activated templates to show in response
-						rows, err := DB.Query("SELECT deskripsi, nominal, target_day, tipe FROM recurring_templates WHERE user_id = 'user_1' AND status = 'planned'")
+						rows, err := DB.Query("SELECT deskripsi, nominal, target_day, tipe FROM recurring_templates WHERE user_id = ? AND status = 'planned'", userID)
 						var lines []string
 						if err == nil {
 							defer rows.Close()
@@ -1290,7 +1290,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 					}
 					SetUserState(userID, "")
 				} else {
-					_, _ = DB.Exec("DELETE FROM recurring_templates WHERE user_id = 'user_1' AND status = 'pending'")
+					_, _ = DB.Exec("DELETE FROM recurring_templates WHERE user_id = ? AND status = 'pending'", userID)
 					SetUserState(userID, "")
 					replyText = "Pendaftaran template dibatalkan. 😌"
 				}
@@ -1527,9 +1527,9 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 
 			var templateID, realDesc string
 			var nominal float64
-			err := DB.QueryRow("SELECT id, deskripsi, nominal FROM recurring_templates WHERE user_id = 'user_1' AND LOWER(deskripsi) = LOWER(?)", deskripsi).Scan(&templateID, &realDesc, &nominal)
+			err := DB.QueryRow("SELECT id, deskripsi, nominal FROM recurring_templates WHERE user_id = ? AND LOWER(deskripsi) = LOWER(?)", userID, deskripsi).Scan(&templateID, &realDesc, &nominal)
 			if err != nil {
-				err = DB.QueryRow("SELECT id, deskripsi, nominal FROM recurring_templates WHERE user_id = 'user_1' AND LOWER(deskripsi) LIKE LOWER(?)", "%"+deskripsi+"%").Scan(&templateID, &realDesc, &nominal)
+				err = DB.QueryRow("SELECT id, deskripsi, nominal FROM recurring_templates WHERE user_id = ? AND LOWER(deskripsi) LIKE LOWER(?)", userID, "%"+deskripsi+"%").Scan(&templateID, &realDesc, &nominal)
 			}
 
 			if err != nil {
@@ -1551,9 +1551,9 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 			}
 
 			var templateID, realDesc string
-			err := DB.QueryRow("SELECT id, deskripsi FROM recurring_templates WHERE user_id = 'user_1' AND LOWER(deskripsi) = LOWER(?)", targetDesc).Scan(&templateID, &realDesc)
+			err := DB.QueryRow("SELECT id, deskripsi FROM recurring_templates WHERE user_id = ? AND LOWER(deskripsi) = LOWER(?)", userID, targetDesc).Scan(&templateID, &realDesc)
 			if err != nil {
-				err = DB.QueryRow("SELECT id, deskripsi FROM recurring_templates WHERE user_id = 'user_1' AND LOWER(deskripsi) LIKE LOWER(?)", "%"+targetDesc+"%").Scan(&templateID, &realDesc)
+				err = DB.QueryRow("SELECT id, deskripsi FROM recurring_templates WHERE user_id = ? AND LOWER(deskripsi) LIKE LOWER(?)", userID, "%"+targetDesc+"%").Scan(&templateID, &realDesc)
 			}
 
 			if err != nil {
@@ -1582,7 +1582,7 @@ func ProcessChat(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 
-			_, _ = DB.Exec("DELETE FROM recurring_templates WHERE user_id = 'user_1' AND status = 'pending'")
+			_, _ = DB.Exec("DELETE FROM recurring_templates WHERE user_id = ? AND status = 'pending'", userID)
 
 			var lines []string
 			successCount := 0
